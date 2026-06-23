@@ -581,7 +581,39 @@
               </label>
               <label>
                 Country
-                <input name="country" placeholder="Tanzania" required />
+                <select name="country" required>
+                  <option value="">Select country</option>
+                  <option value="Kenya">Kenya (+254)</option>
+                  <option value="Tanzania">Tanzania (+255)</option>
+                  <option value="Uganda">Uganda (+256)</option>
+                  <option value="Rwanda">Rwanda (+250)</option>
+                  <option value="Burundi">Burundi (+257)</option>
+                  <option value="Ethiopia">Ethiopia (+251)</option>
+                  <option value="South Sudan">South Sudan (+211)</option>
+                  <option value="Somalia">Somalia (+252)</option>
+                  <option value="Democratic Republic of Congo">DRC (+243)</option>
+                </select>
+              </label>
+            </div>
+            <div class="two-col">
+              <label>
+                Phone country code
+                <select name="phoneCountryCode" required>
+                  <option value="">Select code</option>
+                  <option value="254">Kenya +254</option>
+                  <option value="255">Tanzania +255</option>
+                  <option value="256">Uganda +256</option>
+                  <option value="250">Rwanda +250</option>
+                  <option value="257">Burundi +257</option>
+                  <option value="251">Ethiopia +251</option>
+                  <option value="211">South Sudan +211</option>
+                  <option value="252">Somalia +252</option>
+                  <option value="243">DRC +243</option>
+                </select>
+              </label>
+              <label>
+                Platform updates phone
+                <input name="platformUpdatesPhone" type="tel" inputmode="tel" placeholder="712345678 or +254712345678" required />
               </label>
             </div>
             <div class="two-col">
@@ -735,6 +767,7 @@
         validateDashboardProfile
       } from "./system-logic.js";
       import { validateBusinessEmail } from "./js/business-email.js";
+      import { normalizeEastAfricaPhone } from "./js/phone.js";
 
       const websiteForm = document.querySelector("#websiteForm");
       const websiteStatus = document.querySelector("#websiteStatus");
@@ -786,12 +819,19 @@
       listingForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         listingStatus.innerHTML = `<p class="message ok">Building and checking your listing...</p>`;
-        const payload = Object.fromEntries(new FormData(listingForm).entries());
-        const emailValidation = validateBusinessProfileEmails(payload);
+        const rawPayload = Object.fromEntries(new FormData(listingForm).entries());
+        const emailValidation = validateBusinessProfileEmails(rawPayload);
         if (!emailValidation.valid) {
           listingStatus.innerHTML = `<p class="message error">${escapeHtml(emailValidation.message)}</p>`;
           return;
         }
+        const phoneValidation = normalizeOnboardingPhoneFields(rawPayload);
+        if (!phoneValidation.valid) {
+          listingStatus.innerHTML = `<p class="message error">${escapeHtml(phoneValidation.message)}</p>`;
+          renderStep(0);
+          return;
+        }
+        const payload = phoneValidation.data;
         if (!isBusinessEmailVerifiedForDomain(payload.domain)) {
           listingStatus.innerHTML = `<p class="message error">Verify a business email at ${escapeHtml(clean(payload.domain) || "your domain")} before submitting.</p>`;
           renderStep(0);
@@ -977,6 +1017,13 @@
           listingStatus.innerHTML = `<p class="message error">${escapeHtml(emailValidation.message)}</p>`;
           return false;
         }
+        if (step === 0) {
+          const phoneValidation = normalizeOnboardingPhoneFields(data);
+          if (!phoneValidation.valid) {
+            listingStatus.innerHTML = `<p class="message error">${escapeHtml(phoneValidation.message)}</p>`;
+            return false;
+          }
+        }
         return true;
       }
 
@@ -1013,6 +1060,7 @@
           ["Listing ID", data.namespace],
           ["Action", data.serviceName],
           ["Region", [data.country, data.region].filter(Boolean).join(" / ")],
+          ["Updates phone", normalizeOnboardingPhoneFields(data).data?.platformUpdatesPhone || data.platformUpdatesPhone],
           ["Approval", data.approvalEmail],
           ["Deal limit", data.maxDealValue ? `${data.currency || "USD"} ${data.maxDealValue}` : ""],
           ["Keywords", data.tags]
@@ -1052,6 +1100,8 @@
           pricingModel: manifest.pricing?.model,
           approvalEmail: manifest.agentProfile?.approval?.email,
           approvalPhone: manifest.agentProfile?.approval?.phone,
+          platformUpdatesPhone: manifest.agentProfile?.platformUpdatesPhone,
+          phoneCountryCode: manifest.agentProfile?.phoneCountryCode,
           maxDealValue: manifest.agentProfile?.dealControls?.maxAutonomousDealValue,
           currency: manifest.agentProfile?.dealControls?.currency,
           approvalRequiredAbove: manifest.agentProfile?.dealControls?.approvalRequiredAbove,
@@ -1088,6 +1138,8 @@
           pricingModel: "quote",
           approvalEmail: `agents@${domain}`,
           approvalPhone: "",
+          phoneCountryCode: "255",
+          platformUpdatesPhone: "",
           maxDealValue: "500",
           currency: "USD",
           approvalRequiredAbove: "100",
@@ -1131,6 +1183,11 @@
           businessEmail: businessEmailVerification.businessEmail,
           businessDomain: businessEmailVerification.businessDomain,
           businessEmailVerified: true,
+          notificationPhone: profilePayload.notificationPhone,
+          platformUpdatesPhone: profilePayload.platformUpdatesPhone,
+          phoneCountryCode: profilePayload.phoneCountryCode,
+          phoneCountry: profilePayload.phoneCountry,
+          phoneCountryIso2: profilePayload.phoneCountryIso2,
           onboardingCompleted: true
         });
         await saveOwnerProfile(user.uid, profilePayload);
@@ -1227,6 +1284,11 @@
             email: clean(input.approvalEmail || input.contact),
             phone: clean(input.approvalPhone)
           },
+          notificationPhone: clean(input.notificationPhone || input.platformUpdatesPhone),
+          platformUpdatesPhone: clean(input.platformUpdatesPhone || input.notificationPhone),
+          phoneCountryCode: clean(input.phoneCountryCode),
+          phoneCountry: clean(input.phoneCountry || input.country),
+          phoneCountryIso2: clean(input.phoneCountryIso2),
           preferences: {
             allowedRegions: [clean(input.region)].filter(Boolean),
             blacklist: []
@@ -1262,6 +1324,7 @@
         if (!manifest.agentProfile?.country) errors.push("Country is required.");
         if (!manifest.agentProfile?.region) errors.push("Region served is required.");
         if (!manifest.agentProfile?.approval?.email) errors.push("Human approval email is required.");
+        if (!manifest.agentProfile?.platformUpdatesPhone) errors.push("Platform updates phone is required.");
         if (manifest.agentProfile?.dealControls?.maxAutonomousDealValue <= 0) {
           errors.push("Max agent-negotiated deal value must be greater than zero.");
         }
@@ -1273,6 +1336,7 @@
         if (manifest.publisher.domain) score += 10;
         if (agentProfile.category && agentProfile.country && agentProfile.region) score += 15;
         if (agentProfile.approval.email) score += 10;
+        if (agentProfile.platformUpdatesPhone) score += 5;
         if (agentProfile.dealControls.maxAutonomousDealValue > 0) score += 10;
         if (manifest.capabilities[0].tags.length) score += 10;
         if (agentProfile.pricingRules.paymentTerms) score += 5;
@@ -1311,6 +1375,27 @@
           .split(",")
           .map((tag) => slug(tag))
           .filter(Boolean);
+      }
+
+      function normalizeOnboardingPhoneFields(input) {
+        const phone = normalizeEastAfricaPhone(input.platformUpdatesPhone, {
+          countryCode: input.phoneCountryCode,
+          country: input.country
+        });
+        if (!phone.valid) return phone;
+        return {
+          valid: true,
+          data: {
+            ...input,
+            platformUpdatesPhone: phone.phone,
+            notificationPhone: phone.phone,
+            approvalPhone: clean(input.approvalPhone) || phone.phone,
+            phoneCountryCode: phone.countryCode,
+            phoneCountry: phone.country,
+            phoneCountryIso2: phone.countryIso2,
+            country: clean(input.country) || phone.country
+          }
+        };
       }
 
       function titleCase(value) {

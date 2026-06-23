@@ -1,3 +1,5 @@
+import { normalizeEastAfricaPhone } from "./js/phone.js";
+
 export const PROFILE_STATUS = Object.freeze({
   DRAFT: "draft",
   PENDING_REVIEW: "pending_review",
@@ -87,6 +89,8 @@ export function normalizeOnboardingProfile(input, result) {
   const currency = clean(input.currency).toUpperCase() || "USD";
   const maxDealValue = numberOrZero(input.maxDealValue);
   const approvalRequiredAbove = numberOrZero(input.approvalRequiredAbove);
+  const phone = normalizeEastAfricaPhone(input.platformUpdatesPhone || input.approvalPhone, input);
+  const normalizedPhoneFields = phone.valid ? phoneFields(phone) : {};
 
   return {
     businessName: clean(input.publisherName),
@@ -104,7 +108,8 @@ export function normalizeOnboardingProfile(input, result) {
     approvalRequiredAbove,
     currency,
     approvalEmail: clean(input.approvalEmail || input.contact),
-    approvalPhone: clean(input.approvalPhone),
+    approvalPhone: normalizedPhoneFields.approvalPhone || clean(input.approvalPhone),
+    ...normalizedPhoneFields,
     contact: clean(input.contact),
     pricingModel: clean(input.pricingModel) || "quote",
     paymentTerms: clean(input.paymentTerms),
@@ -643,6 +648,8 @@ export function isOrderOverdue(order = {}, now = new Date().toISOString(), overd
 }
 
 function buildAgentConfig(input, currency, maxDealValue, approvalRequiredAbove) {
+  const phone = normalizeEastAfricaPhone(input.platformUpdatesPhone || input.approvalPhone, input);
+  const normalizedPhone = phone.valid ? phone.phone : clean(input.approvalPhone);
   return {
     status: PROFILE_STATUS.DRAFT,
     instructions: {
@@ -677,7 +684,7 @@ function buildAgentConfig(input, currency, maxDealValue, approvalRequiredAbove) 
     },
     escalationRules: {
       approvalEmail: clean(input.approvalEmail || input.contact),
-      approvalPhone: clean(input.approvalPhone),
+      approvalPhone: normalizedPhone,
       timeout: "24 hours",
       confidenceThreshold: 70,
       customTerms: true,
@@ -703,6 +710,17 @@ function buildAgentConfig(input, currency, maxDealValue, approvalRequiredAbove) 
       blacklist: ""
     },
     updatedAtClient: new Date().toISOString()
+  };
+}
+
+function phoneFields(phone) {
+  return {
+    approvalPhone: phone.phone,
+    notificationPhone: phone.phone,
+    platformUpdatesPhone: phone.phone,
+    phoneCountryCode: phone.countryCode,
+    phoneCountry: phone.country,
+    phoneCountryIso2: phone.countryIso2
   };
 }
 

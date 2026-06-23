@@ -1917,6 +1917,25 @@
                     <option value="sms">SMS later</option>
                   </select>
                 </label>
+                <div class="form-grid">
+                  <label>Phone country code
+                    <select name="phoneCountryCode" required>
+                      <option value="">Select code</option>
+                      <option value="254">Kenya +254</option>
+                      <option value="255">Tanzania +255</option>
+                      <option value="256">Uganda +256</option>
+                      <option value="250">Rwanda +250</option>
+                      <option value="257">Burundi +257</option>
+                      <option value="251">Ethiopia +251</option>
+                      <option value="211">South Sudan +211</option>
+                      <option value="252">Somalia +252</option>
+                      <option value="243">DRC +243</option>
+                    </select>
+                  </label>
+                  <label>Platform updates phone
+                    <input name="platformUpdatesPhone" type="tel" inputmode="tel" placeholder="712345678 or +254712345678" required />
+                  </label>
+                </div>
                 <label><input name="dealRequests" type="checkbox" value="true" /> Agent requests</label>
                 <label><input name="humanApprovals" type="checkbox" value="true" /> Approvals</label>
                 <label><input name="weeklySummary" type="checkbox" value="true" /> Weekly summary</label>
@@ -2012,6 +2031,7 @@
       } from "./system-logic.js";
       import { mobileSectionIds, routeIndex, sections } from "./js/dashboard/navigation.js";
       import { validateBusinessEmail } from "./js/business-email.js";
+      import { normalizeEastAfricaPhone } from "./js/phone.js";
 
       const OWNER_AGENT_CHAT_ENDPOINTS = [
         "https://dnols-83jj.onrender.com/api/agent-chat",
@@ -2285,7 +2305,9 @@
           theme: selectedTheme
         });
         setValues("#notificationsForm", {
-          notificationChannel: account.notificationPreferences?.channel || account.notificationChannel || "email"
+          notificationChannel: account.notificationPreferences?.channel || account.notificationChannel || "email",
+          phoneCountryCode: account.phoneCountryCode || profile.phoneCountryCode || "254",
+          platformUpdatesPhone: account.platformUpdatesPhone || account.notificationPhone || profile.platformUpdatesPhone || profile.notificationPhone || profile.approvalPhone || ""
         });
         setCheckboxes("#notificationsForm", {
           dealRequests: account.notificationPreferences?.dealRequests ?? true,
@@ -2989,16 +3011,34 @@
       async function saveNotificationsForm(event) {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(event.target).entries());
+        const phone = normalizeEastAfricaPhone(data.platformUpdatesPhone, {
+          countryCode: data.phoneCountryCode,
+          country: profile.phoneCountry || account.phoneCountry || profile.country
+        });
+        if (!phone.valid) {
+          showErrorStatus("#notificationsStatus", phone.message);
+          return;
+        }
         const notificationPreferences = {
           channel: data.notificationChannel || "email",
           dealRequests: data.dealRequests === "true",
           humanApprovals: data.humanApprovals === "true",
-          weeklySummary: data.weeklySummary === "true"
+          weeklySummary: data.weeklySummary === "true",
+          platformUpdatesPhone: phone.phone
+        };
+        const phoneFields = {
+          notificationPhone: phone.phone,
+          platformUpdatesPhone: phone.phone,
+          phoneCountryCode: phone.countryCode,
+          phoneCountry: phone.country,
+          phoneCountryIso2: phone.countryIso2
         };
         await updateOwnerAccount(user.uid, {
           notificationChannel: notificationPreferences.channel,
-          notificationPreferences
+          notificationPreferences,
+          ...phoneFields
         });
+        await saveOwnerProfile(user.uid, phoneFields);
         showStatus("#notificationsStatus", "Saved.");
         await reloadAll();
       }
