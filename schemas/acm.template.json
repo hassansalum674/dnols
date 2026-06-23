@@ -1,0 +1,115 @@
+{
+  "acmVersion": "0.1.0",
+  "namespace": "com.your-company.your-service",
+  "name": "Your Agent-Ready Service Name",
+  "summary": "Describe what your business capability does in one or two sentences so an AI agent can decide when to use it.",
+  "publisher": {
+    "name": "Your Legal Business Name",
+    "domain": "your-company.com",
+    "did": "did:web:your-company.com",
+    "contact": "agents@your-company.com"
+  },
+  "capabilities": [
+    {
+      "id": "your-capability-id",
+      "name": "Your Capability Name",
+      "description": "Explain the specific business action an AI agent can request, including when it should use this capability.",
+      "tags": [
+        "your-industry",
+        "your-use-case"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "exampleRequiredField"
+        ],
+        "properties": {
+          "exampleRequiredField": {
+            "type": "string",
+            "description": "Explain what the agent must provide."
+          },
+          "exampleOptionalField": {
+            "type": "string",
+            "description": "Explain optional context the agent may provide."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "description": "Explain what your service returns."
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/capabilities/your-capability-id/invoke",
+        "mode": "workflow",
+        "requiresConfirmation": true,
+        "idempotencyKeyRequired": true
+      },
+      "examples": [
+        {
+          "intent": "Describe a natural-language request an agent might have.",
+          "input": {
+            "exampleRequiredField": "example value"
+          }
+        }
+      ],
+      "mediaTypes": [
+        "application/json"
+      ]
+    }
+  ],
+  "pricing": {
+    "model": "usage",
+    "currency": "USD",
+    "plans": [
+      {
+        "name": "API request",
+        "price": 0.1,
+        "unit": "request"
+      }
+    ]
+  },
+  "trust": {
+    "verificationStatus": "self-attested",
+    "credentials": [
+      {
+        "type": "KYB",
+        "issuer": "Your verifier or auditor",
+        "url": "https://your-company.com/trust/kyb"
+      }
+    ],
+    "reputation": {
+      "score": 0,
+      "transactionCount": 0,
+      "disputeRate": 0
+    }
+  },
+  "endpoints": {
+    "baseUrl": "https://api.your-company.com",
+    "manifestUrl": "https://your-company.com/.well-known/agent-capabilities.json",
+    "protocols": [
+      {
+        "type": "rest",
+        "url": "https://api.your-company.com/v1"
+      }
+    ],
+    "auth": {
+      "type": "apiKey"
+    },
+    "rateLimits": {
+      "requestsPerMinute": 60
+    },
+    "sla": {
+      "availability": 99.5,
+      "p95LatencyMs": 500
+    }
+  }
+}

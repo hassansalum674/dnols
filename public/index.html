@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dnols — Business Agents For B2B Deals</title>
+    <meta
+      name="description"
+      content="Dnols helps businesses create agent profiles that receive deal requests, negotiate within rules, and escalate final decisions to humans."
+    />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Lora:wght@600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Lora:wght@600;700&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #05060a;
+        --surface: #0d0f18;
+        --border: #1c1f2e;
+        --brand: #4f6ef7;
+        --brand-glow: rgba(79, 110, 247, 0.18);
+        --accent: #00e5c3;
+        --text-1: #f0f1f5;
+        --text-2: #8a8fa8;
+        --text-3: #4a4f68;
+        --accent-glow-soft: rgba(0, 229, 195, 0.08);
+        --accent-glow-strong: rgba(0, 229, 195, 0.8);
+        --nav-bg: rgba(5, 6, 10, 0.72);
+        --surface-56: rgba(13, 15, 24, 0.56);
+        --surface-72: rgba(13, 15, 24, 0.72);
+        --surface-92: rgba(13, 15, 24, 0.92);
+        --brand-shadow-strong: rgba(79, 110, 247, 0.35);
+        --brand-shadow-soft: rgba(79, 110, 247, 0.24);
+        --brand-terminal-glow: rgba(79, 110, 247, 0.12);
+        --surface-highlight: rgba(255, 255, 255, 0.025);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 50% 0%, var(--brand-glow), transparent 36rem),
+          radial-gradient(circle at 12% 32%, var(--accent-glow-soft), transparent 26rem),
+          var(--bg);
+        color: var(--text-1);
+        font-family: "Inter", system-ui, sans-serif;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .container {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: transparent;
+        transition:
+          background 200ms ease,
+          border-color 200ms ease,
+          backdrop-filter 200ms ease;
+        border-bottom: 1px solid transparent;
+      }
+
+      .nav.scrolled {
+        background: var(--nav-bg);
+        border-bottom-color: var(--border);
+        backdrop-filter: blur(20px);
+      }
+
+      .nav-inner {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Inter", system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        color: var(--text-1);
+      }
+
+      .brand-logo {
+        width: 24px;
+        height: 24px;
+        display: block;
+        object-fit: contain;
+        filter: invert(1);
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .signin {
+        color: var(--text-2);
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 200ms ease;
+      }
+
+      .signin:hover {
+        color: var(--text-1);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 52px;
+        padding: 0 24px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        color: var(--text-1);
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1;
+        cursor: pointer;
+        transition:
+          transform 200ms ease,
+          box-shadow 200ms ease,
+          border-color 200ms ease,
+          background 200ms ease;
+      }
+
+      .btn-primary {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: var(--text-1);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px var(--brand-shadow-strong);
+      }
+
+      .btn-primary:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 14px var(--brand-shadow-soft);
+      }
+
+      .btn-ghost {
+        background: var(--surface-56);
+        color: var(--text-1);
+      }
+
+      .btn-ghost:hover {
+        border-color: var(--brand);
+        transform: translateY(-2px);
+      }
+
+      .mobile-toggle {
+        display: none;
+        width: 42px;
+        height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface-72);
+        color: var(--text-1);
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .mobile-toggle span {
+        display: block;
+        width: 17px;
+        height: 2px;
+        margin: 3px auto;
+        border-radius: 999px;
+        background: var(--text-1);
+        transition:
+          transform 180ms ease,
+          opacity 180ms ease;
+      }
+
+      .mobile-toggle[aria-expanded="true"] span:nth-child(1) {
+        transform: translateY(5px) rotate(45deg);
+      }
+
+      .mobile-toggle[aria-expanded="true"] span:nth-child(2) {
+        opacity: 0;
+      }
+
+      .mobile-toggle[aria-expanded="true"] span:nth-child(3) {
+        transform: translateY(-5px) rotate(-45deg);
+      }
+
+      .mobile-drawer {
+        display: none;
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: 64px;
+        border-top: 1px solid var(--border);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        background: rgba(13, 15, 24, 0.98);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      .mobile-drawer.open {
+        display: block;
+      }
+
+      .mobile-drawer a {
+        display: flex;
+        width: 100%;
+        margin-top: 10px;
+      }
+
+      .mobile-drawer a:first-child {
+        margin-top: 0;
+      }
+
+      .hero {
+        min-height: calc(100vh - 72px);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 64px 0 96px;
+      }
+
+      .hero-content {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .eyebrow-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--accent);
+        background: var(--surface-72);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow-pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 18px var(--accent-glow-strong);
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: "Lora", Georgia, serif;
+        margin: 0;
+      }
+
+      .hero h1 {
+        margin-top: 24px;
+        color: var(--text-1);
+        font-size: 54px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1.12;
+        padding-bottom: 8px;
+      }
+
+      .hero-subtitle {
+        max-width: 560px;
+        margin: 24px auto 0;
+        color: var(--text-2);
+        font-size: 18px;
+        font-weight: 400;
+        line-height: 1.55;
+      }
+
+      .cta-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 32px;
+      }
+
+      .trust-line {
+        margin: 24px 0 0;
+        color: var(--text-3);
+        font-size: 14px;
+        font-weight: 400;
+      }
+
+      .terminal {
+        width: min(580px, 100%);
+        margin: 48px auto 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-92);
+        box-shadow: 0 0 60px var(--brand-terminal-glow);
+        text-align: left;
+      }
+
+      .terminal-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .terminal-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--text-3);
+      }
+
+      .terminal-body {
+        min-height: 152px;
+        padding: 18px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 14px;
+        line-height: 1.75;
+        white-space: pre-wrap;
+        color: var(--text-1);
+      }
+
+      .prompt {
+        color: var(--accent);
+      }
+
+      .success {
+        color: var(--accent);
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 8px;
+        height: 1.2em;
+        margin-left: 2px;
+        background: var(--brand);
+        vertical-align: -0.2em;
+        animation: blink 1s steps(2, start) infinite;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .proof {
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        padding: 32px 0;
+      }
+
+      .proof-label {
+        margin: 0 0 24px;
+        color: var(--text-3);
+        text-align: center;
+        font-size: 13px;
+      }
+
+      .logos {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 24px;
+        align-items: center;
+      }
+
+      .wordmark {
+        width: 100%;
+        height: 28px;
+      }
+
+      .wordmark text {
+        fill: var(--text-3);
+        font-family: "Lora", Georgia, serif;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      section {
+        padding: 96px 0;
+      }
+
+      .section-label {
+        margin: 0 0 16px;
+        color: var(--text-3);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .section-title {
+        max-width: 760px;
+        color: var(--text-1);
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.16;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-top: 48px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background:
+          linear-gradient(180deg, var(--surface-highlight), transparent),
+          var(--surface);
+        padding: 32px;
+      }
+
+      .icon {
+        width: 36px;
+        height: 36px;
+        margin-bottom: 24px;
+      }
+
+      .icon.brand {
+        color: var(--brand);
+      }
+
+      .icon.accent {
+        color: var(--accent);
+      }
+
+      .card h3 {
+        color: var(--text-1);
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .card p {
+        margin: 14px 0 0;
+        color: var(--text-2);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      .differentiator {
+        padding: 128px 0;
+        background: var(--bg);
+        text-align: center;
+      }
+
+      .differentiator h2 {
+        color: var(--text-1);
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+      }
+
+      .differentiator p {
+        max-width: 600px;
+        margin: 24px auto 0;
+        color: var(--text-2);
+        font-size: 18px;
+        line-height: 1.65;
+      }
+
+      .protocols {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 40px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 76px;
+        height: 38px;
+        padding: 0 18px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-2);
+        background: var(--surface);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .connector {
+        color: var(--brand);
+        font-size: 18px;
+      }
+
+      .testimonial {
+        position: relative;
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 96px 0;
+        text-align: center;
+      }
+
+      .quote-mark {
+        position: absolute;
+        top: 42px;
+        left: 50%;
+        width: 140px;
+        height: 140px;
+        transform: translateX(-50%);
+        color: var(--brand-glow);
+        z-index: -1;
+      }
+
+      .quote {
+        margin: 0;
+        color: var(--text-1);
+        font-family: "Lora", Georgia, serif;
+        font-size: 24px;
+        font-style: italic;
+        font-weight: 700;
+        line-height: 1.35;
+        letter-spacing: -0.03em;
+      }
+
+      .person {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 28px;
+        color: var(--text-2);
+        font-size: 15px;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--text-2);
+        font-weight: 500;
+      }
+
+      .final-cta {
+        padding: 96px 0;
+        text-align: center;
+        background: radial-gradient(circle at 50% 50%, var(--brand-glow), transparent 34rem);
+      }
+
+      .final-cta h2 {
+        max-width: 760px;
+        margin: 0 auto;
+        color: var(--text-1);
+        font-size: 38px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1.12;
+      }
+
+      .final-cta .btn {
+        min-height: 56px;
+        margin-top: 32px;
+        padding: 0 32px;
+      }
+
+      .final-cta p {
+        margin: 18px 0 0;
+        color: var(--text-3);
+        font-size: 14px;
+      }
+
+      .footer {
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        padding: 32px 0;
+      }
+
+      .footer-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        color: var(--text-3);
+        font-size: 14px;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 24px;
+      }
+
+      .footer-links a {
+        color: var(--text-3);
+        font-size: 14px;
+      }
+
+      .animate {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+          transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+        transition-delay: var(--delay, 0ms);
+      }
+
+      .animate.animate-in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .hero .animate:nth-child(1) {
+        --delay: 0ms;
+      }
+
+      .hero .animate:nth-child(2) {
+        --delay: 100ms;
+      }
+
+      .hero .animate:nth-child(3) {
+        --delay: 250ms;
+      }
+
+      .hero .animate:nth-child(4) {
+        --delay: 400ms;
+      }
+
+      .hero .animate:nth-child(5) {
+        --delay: 500ms;
+      }
+
+      .hero .animate:nth-child(6) {
+        --delay: 600ms;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
+
+        .animate {
+          transform: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .container {
+          width: min(100% - 24px, 520px);
+        }
+
+        .nav {
+          background: var(--nav-bg);
+          border-bottom-color: var(--border);
+          backdrop-filter: blur(18px);
+        }
+
+        .nav-inner {
+          height: 60px;
+        }
+
+        .nav-actions .signin {
+          display: none;
+        }
+
+        .nav-actions .btn {
+          display: none;
+        }
+
+        .mobile-toggle {
+          display: inline-grid;
+          place-items: center;
+        }
+
+        .nav-actions {
+          gap: 12px;
+        }
+
+        .hero {
+          min-height: auto;
+          padding: 32px 0 44px;
+        }
+
+        .eyebrow-pill {
+          padding: 7px 10px;
+          font-size: 11px;
+        }
+
+        .hero h1 {
+          margin-top: 18px;
+          font-size: clamp(32px, 10vw, 40px);
+          line-height: 1.08;
+          letter-spacing: -0.05em;
+        }
+
+        .hero-subtitle {
+          margin-top: 16px;
+          font-size: 16px;
+          line-height: 1.55;
+        }
+
+        .cta-row {
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 24px;
+        }
+
+        .cta-row .btn,
+        .final-cta .btn {
+          width: 100%;
+        }
+
+        .terminal {
+          margin-top: 24px;
+          overflow: hidden;
+        }
+
+        .terminal-top {
+          height: 32px;
+          padding: 0 12px;
+        }
+
+        .terminal-dot {
+          width: 7px;
+          height: 7px;
+        }
+
+        .terminal-body {
+          min-width: 0;
+          min-height: 112px;
+          padding: 12px;
+          font-size: 12px;
+          line-height: 1.6;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .logos,
+        .steps {
+          grid-template-columns: 1fr;
+        }
+
+        .wordmark {
+          height: 24px;
+        }
+
+        section,
+        .testimonial,
+        .final-cta {
+          padding: 48px 0;
+        }
+
+        .section-title,
+        .differentiator h2,
+        .final-cta h2 {
+          font-size: 28px;
+          line-height: 1.16;
+        }
+
+        .differentiator {
+          padding: 56px 0;
+        }
+
+        .card {
+          padding: 22px;
+        }
+
+        .proof {
+          padding: 24px 0;
+        }
+
+        .protocols {
+          gap: 8px;
+          margin-top: 28px;
+        }
+
+        .badge {
+          min-width: 64px;
+          height: 34px;
+          padding: 0 14px;
+          font-size: 13px;
+        }
+
+        .quote {
+          font-size: 20px;
+        }
+
+        .person {
+          align-items: flex-start;
+          text-align: left;
+        }
+
+        .footer-inner,
+        .footer-brand,
+        .footer-links {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .footer-links {
+          gap: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav" id="nav">
+      <div class="container">
+        <div class="nav-inner">
+          <a class="logo" href="#top" aria-label="Dnols home">
+            <img class="brand-logo" src="/logo.png" alt="" aria-hidden="true" />
+            <span>Dnols</span>
+          </a>
+          <div class="nav-actions">
+            <a class="signin" href="/login.html">Sign in</a>
+            <a class="btn btn-primary" href="/onboarding.html">Create your agent →</a>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Open menu" aria-expanded="false">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+        </div>
+        <div class="mobile-drawer" id="mobileDrawer">
+          <a class="signin" href="/deals.html">Request a deal</a>
+          <a class="btn btn-primary" href="/onboarding.html">Create your agent →</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero" id="top">
+      <div class="container">
+        <div class="hero-content">
+          <div class="eyebrow-pill animate">Business Agent Economy</div>
+          <h1 class="animate">Your business,<br />represented by an AI agent.</h1>
+          <p class="hero-subtitle animate">
+            Create a business agent profile, receive structured deal requests, and approve final decisions
+            before anything is executed.
+          </p>
+          <div class="cta-row animate">
+            <a class="btn btn-primary" href="/onboarding.html">Create your agent free →</a>
+            <a class="btn btn-ghost" href="/deals.html">Request a deal →</a>
+          </div>
+          <p class="trust-line animate">Start with human-approved deals. Add API execution only when ready.</p>
+          <div class="terminal animate" aria-label="Live agent query terminal">
+            <div class="terminal-top">
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+            </div>
+            <div class="terminal-body" id="terminalText"><span class="cursor"></span></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="proof animate" id="registry">
+      <div class="container">
+        <p class="proof-label">Trusted by businesses across East Africa and beyond</p>
+        <div class="logos">
+          <svg class="wordmark" viewBox="0 0 180 28" role="img" aria-label="Azania Logistics">
+            <text x="0" y="20">Azania Logistics</text>
+          </svg>
+          <svg class="wordmark" viewBox="0 0 180 28" role="img" aria-label="ProTender">
+            <text x="0" y="20">ProTender</text>
+          </svg>
+          <svg class="wordmark" viewBox="0 0 180 28" role="img" aria-label="SafariPay">
+            <text x="0" y="20">SafariPay</text>
+          </svg>
+          <svg class="wordmark" viewBox="0 0 180 28" role="img" aria-label="DataBridge">
+            <text x="0" y="20">DataBridge</text>
+          </svg>
+          <svg class="wordmark" viewBox="0 0 180 28" role="img" aria-label="VendorShield">
+            <text x="0" y="20">VendorShield</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <p class="section-label animate">How It Works</p>
+        <h2 class="section-title animate">From business profile to human-approved deals</h2>
+        <div class="steps">
+          <article class="card animate" style="--delay: 0ms">
+            <svg class="icon brand" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+              <path d="M8 25.5L10 17L22.5 4.5L31.5 13.5L19 26L10.5 28L8 25.5Z" stroke="currentColor" stroke-width="2" />
+              <path d="M19.5 7.5L28.5 16.5" stroke="currentColor" stroke-width="2" />
+              <path d="M9 32H29" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <h3>Create your agent profile</h3>
+            <p>
+              Paste your website URL, then set your category, region, capabilities, deal limits, and approval
+              contact.
+            </p>
+          </article>
+          <article class="card animate" style="--delay: 150ms">
+            <svg class="icon accent" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+              <path d="M18 3L30 8V17C30 25 24.8 30 18 33C11.2 30 6 25 6 17V8L18 3Z" stroke="currentColor" stroke-width="2" />
+              <path d="M12.5 18L16.5 22L24 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <h3>Set the rules</h3>
+            <p>
+              Your agent can receive requests and prepare deal summaries, but high-value or final decisions go
+              to a human.
+            </p>
+          </article>
+          <article class="card animate" style="--delay: 300ms">
+            <svg class="icon brand" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+              <circle cx="18" cy="18" r="4" stroke="currentColor" stroke-width="2" />
+              <path d="M18 5V10M18 26V31M5 18H10M26 18H31" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M9 9L12.5 12.5M27 9L23.5 12.5M9 27L12.5 23.5M27 27L23.5 23.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <h3>Approve before execution</h3>
+            <p>
+              Deal requests are stored, reviewed, approved, or rejected. Optional API execution comes after
+              approval.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="differentiator">
+      <div class="container">
+        <h2 class="animate">Human to agent. Agent to agent. Agent to tools.</h2>
+        <p class="animate" style="--delay: 150ms">
+          Dnols separates the human dashboard, future A2A negotiation, MCP-style tool access, and payment
+          settlement so the system can grow without custom protocols.
+        </p>
+        <div class="protocols animate" style="--delay: 300ms">
+          <span class="badge">MCP</span>
+          <span class="connector">→</span>
+          <span class="badge">A2A</span>
+          <span class="connector">→</span>
+          <span class="badge">ARD</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="testimonial animate">
+          <svg class="quote-mark" viewBox="0 0 120 120" fill="currentColor" aria-hidden="true">
+            <path d="M47 28C29 36 20 51 20 73C20 88 29 98 42 98C53 98 61 90 61 80C61 70 54 63 44 63C41 63 38 64 35 65C36 54 42 46 53 40L47 28ZM91 28C73 36 64 51 64 73C64 88 73 98 86 98C97 98 105 90 105 80C105 70 98 63 88 63C85 63 82 64 79 65C80 54 86 46 97 40L91 28Z" />
+          </svg>
+          <blockquote class="quote">
+            "Dnols turns a normal business profile into a deal-ready agent. Humans still approve the final
+            decision, but the request arrives structured."
+          </blockquote>
+          <div class="person">
+            <div class="avatar">JM</div>
+            <span>— James Mwangi, Head of Partnerships, ProTender</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta" id="cta">
+      <div class="container">
+        <h2 class="animate">Give your business an agent.<br />Keep humans in control.</h2>
+        <a class="btn btn-primary animate" style="--delay: 150ms" href="/onboarding.html">
+          Create your agent free →
+        </a>
+        <p class="animate" style="--delay: 300ms">Free profile. No credit card. Human approval built in.</p>
+      </div>
+    </section>
+
+    <footer class="footer" id="footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <a class="logo" href="#top">
+            <img class="brand-logo" src="/logo.png" alt="" aria-hidden="true" />
+            <span>Dnols</span>
+          </a>
+          <span>© 2026 Dnols</span>
+        </div>
+        <div class="footer-links">
+          <a href="#registry">Registry</a>
+          <a href="/deals.html">Request Deal</a>
+          <a href="/approvals.html">Approve Deal</a>
+          <a href="/registry.json">Docs</a>
+          <a href="mailto:hello@dnols.example">Contact</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const nav = document.querySelector("#nav");
+      const mobileToggle = document.querySelector("#mobileToggle");
+      const mobileDrawer = document.querySelector("#mobileDrawer");
+      const terminalText = document.querySelector("#terminalText");
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const terminalLines = [
+        '> request: "quote for East Africa delivery by Friday"',
+        "> matched 3 business agents",
+        "> deal draft created: pending human approval",
+        "✓ owner approval required before execution"
+      ];
+
+      window.addEventListener("scroll", () => {
+        nav.classList.toggle("scrolled", window.scrollY > 8);
+      });
+
+      mobileToggle.addEventListener("click", () => {
+        const isOpen = mobileDrawer.classList.toggle("open");
+        mobileToggle.setAttribute("aria-expanded", String(isOpen));
+        mobileToggle.setAttribute("aria-label", isOpen ? "Close menu" : "Open menu");
+      });
+
+      document.querySelectorAll(".mobile-drawer a").forEach((link) => {
+        link.addEventListener("click", () => {
+          mobileDrawer.classList.remove("open");
+          mobileToggle.setAttribute("aria-expanded", "false");
+          mobileToggle.setAttribute("aria-label", "Open menu");
+        });
+      });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("animate-in");
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+
+      document.querySelectorAll(".animate").forEach((element) => {
+        observer.observe(element);
+      });
+
+      async function typeTerminal() {
+        if (reduceMotion) {
+          terminalText.innerHTML =
+            terminalLines.map(formatTerminalLine).join("<br>") + '<span class="cursor"></span>';
+          return;
+        }
+
+        while (true) {
+          terminalText.innerHTML = '<span class="cursor"></span>';
+          const rendered = [];
+
+          for (const line of terminalLines) {
+            let current = "";
+            for (const char of line) {
+              current += char;
+              terminalText.innerHTML =
+                rendered.join("<br>") + (rendered.length ? "<br>" : "") + formatTerminalLine(current) + '<span class="cursor"></span>';
+              await wait(35);
+            }
+            rendered.push(formatTerminalLine(line));
+            await wait(400);
+          }
+
+          terminalText.innerHTML = rendered.join("<br>") + '<span class="cursor"></span>';
+          await wait(6000);
+        }
+      }
+
+      function formatTerminalLine(line) {
+        const safe = escapeHtml(line);
+        if (safe.startsWith("&gt;")) {
+          return '<span class="prompt">&gt;</span>' + safe.slice(4);
+        }
+
+        if (safe.startsWith("✓")) {
+          return '<span class="success">✓</span>' + safe.slice(1);
+        }
+
+        return safe;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function wait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      window.addEventListener("load", () => {
+        document.querySelectorAll(".hero .animate").forEach((element) => element.classList.add("animate-in"));
+        setTimeout(typeTerminal, reduceMotion ? 0 : 600);
+      });
+    </script>
+  </body>
+</html>

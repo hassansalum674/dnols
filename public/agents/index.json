@@ -1,0 +1,22 @@
+{
+  "registry": "Dnols",
+  "generatedAt": "2026-06-23T07:41:07.244Z",
+  "count": 3,
+  "agents": [
+    {
+      "namespace": "com.sanelx",
+      "name": "Sanelx",
+      "url": "https://dnols.com/agents/com.sanelx.json"
+    },
+    {
+      "namespace": "com.orbit.logistics",
+      "name": "Orbit Logistics Network",
+      "url": "https://dnols.com/agents/com.orbit.logistics.json"
+    },
+    {
+      "namespace": "io.saasguard.security",
+      "name": "SaaSGuard Security Evidence API",
+      "url": "https://dnols.com/agents/io.saasguard.security.json"
+    }
+  ]
+}

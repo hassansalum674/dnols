@@ -1,0 +1,139 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildOwnerAgentChat, validateAgentChatContext } from "../../src/services/agent-chat.js";
+
+const profile = {
+  ownerUid: "owner-a",
+  businessName: "Sanelx",
+  region: "East Africa",
+  currency: "USD",
+  approvalRequiredAbove: 250,
+  capabilityName: "Service request"
+};
+
+const agentConfig = {
+  instructions: {
+    privateRules: "Do not expose this."
+  },
+  capability: {
+    name: "Service request",
+    description: "Procurement help",
+    requiresConfirmation: true
+  },
+  negotiationRules: {
+    minimumPrice: 50,
+    maxDealValue: 1000,
+    approvalRequiredAbove: 250,
+    currencies: "USD"
+  },
+  execution: {
+    endpoint: "https://private.example/api",
+    headers: "Authorization: Bearer secret"
+  }
+};
+
+test("agent chat falls back deterministically without Anthropic configuration", async () => {
+  const result = await buildOwnerAgentChat({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-a" },
+    input: { message: "Should I approve this request?" },
+    env: {}
+  });
+
+  assert.equal(result.provider, "deterministic");
+  assert.equal(result.fallbackReason, "anthropic_not_configured");
+  assert.match(result.agentResponse, /Human approval/);
+});
+
+test("agent chat validates user context without trusting arbitrary business ids", () => {
+  assert.deepEqual(validateAgentChatContext({
+    profile: { ...profile, ownerUid: "owner-a", businessId: "business-b" },
+    agentConfig,
+    userContext: { uid: "owner-a" }
+  }), { valid: true });
+
+  const mismatch = validateAgentChatContext({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-b" }
+  });
+  assert.equal(mismatch.valid, false);
+  assert.equal(mismatch.statusCode, 403);
+});
+
+test("agent chat sends compact server-side Anthropic payload only", async () => {
+  let requestUrl;
+  let requestHeaders;
+  let requestBody;
+  const result = await buildOwnerAgentChat({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-a" },
+    input: { message: "Help me with a buyer quote." },
+    env: {
+      ANTHROPIC_API_KEY: "test-key",
+      ANTHROPIC_MODEL: "test-model",
+      ANTHROPIC_MAX_TOKENS: "250"
+    },
+    fetchImpl: async (url, options) => {
+      requestUrl = url;
+      requestHeaders = options.headers;
+      requestBody = JSON.parse(options.body);
+      assert.ok(options.signal instanceof AbortSignal);
+      return {
+        ok: true,
+        async json() {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  topic: "deal",
+                  agentResponse: "Prepare the quote summary, then ask the owner to approve before execution.",
+                  nextActions: ["Open Approvals before committing to terms."]
+                })
+              }
+            ]
+          };
+        }
+      };
+    }
+  });
+
+  const prompt = JSON.parse(requestBody.messages[0].content);
+  assert.equal(result.provider, "anthropic");
+  assert.equal(result.model, "test-model");
+  assert.equal(requestUrl, "https://api.anthropic.com/v1/messages");
+  assert.equal(requestHeaders["x-api-key"], "test-key");
+  assert.equal(requestHeaders["anthropic-version"], "2023-06-01");
+  assert.equal(requestBody.max_tokens, 250);
+  assert.equal(prompt.businessContext.businessName, "Sanelx");
+  assert.equal(prompt.businessContext.negotiationRules.minimumPrice, undefined);
+  assert.equal(prompt.businessContext.execution, undefined);
+  assert.equal(prompt.businessContext.instructions, undefined);
+});
+
+test("agent chat falls back when Anthropic request times out", async () => {
+  const result = await buildOwnerAgentChat({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-a" },
+    input: { message: "Can Claude help with this quote?" },
+    env: {
+      ANTHROPIC_API_KEY: "test-key",
+      ANTHROPIC_MODEL: "test-model",
+      ANTHROPIC_MAX_TOKENS: "250"
+    },
+    timeoutMs: 1,
+    fetchImpl: async (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new Error("aborted")));
+      })
+  });
+
+  assert.equal(result.provider, "deterministic");
+  assert.equal(result.model, "test-model");
+  assert.equal(result.fallbackReason, "anthropic_unavailable");
+  assert.match(result.agentResponse, /deal|quote|Inbox/i);
+});

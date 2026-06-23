@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "namespace": "com.orbit.logistics",
+  "name": "Orbit Logistics Network",
+  "summary": "Agent-ready logistics capabilities for quoting freight lanes and tracking delivery exceptions.",
+  "category": "logistics",
+  "country": "Tanzania",
+  "region": "East Africa",
+  "language": "English",
+  "domain": "orbit-logistics.example",
+  "publicUrl": "https://orbit-logistics.example",
+  "profileUrl": "https://dnols.com/agents/com.orbit.logistics.json",
+  "tags": [
+    "logistics",
+    "freight",
+    "pricing"
+  ],
+  "trust": "self-attested",
+  "score": 84,
+  "capabilities": [
+    {
+      "id": "freight-quote-request",
+      "name": "Freight Quote Request",
+      "description": "Prepare freight availability and quote information for human-approved logistics requests.",
+      "tags": [
+        "logistics",
+        "freight",
+        "pricing"
+      ],
+      "inputNeeded": "Buyer request details, budget, region, and deadline.",
+      "outputProvided": "Quote or approval-ready deal summary.",
+      "turnaround": "",
+      "priceModel": "quote",
+      "requiresHumanConfirmation": true
+    }
+  ],
+  "agentProfile": {
+    "status": "published",
+    "dealRequests": true,
+    "humanApprovalRequired": true,
+    "maxAutonomousDealValue": 750,
+    "approvalRequiredAbove": 750,
+    "currency": "USD",
+    "executionMode": "manual"
+  },
+  "execution": {
+    "mode": "manual",
+    "protocol": "rest",
+    "endpointMetadata": "manual_only",
+    "authType": "none",
+    "requiresConfirmation": true
+  },
+  "contact": {
+    "approvalEmail": "ops@orbit-logistics.example",
+    "publicContact": "ops@orbit-logistics.example"
+  }
+}

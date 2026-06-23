@@ -1,0 +1,70 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "site": "dnols-2a394",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/.well-known/agent-registry.json",
+        "destination": "/registry.json"
+      },
+      {
+        "source": "/.well-known/agent-capabilities.json",
+        "destination": "/registry.json"
+      },
+      {
+        "source": "/onboarding",
+        "destination": "/onboarding.html"
+      },
+      {
+        "source": "/deals",
+        "destination": "/deals.html"
+      },
+      {
+        "source": "/approvals",
+        "destination": "/approvals.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/login.html"
+      },
+      {
+        "source": "/dashboard",
+        "destination": "/dashboard.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(html|js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300"
+          }
+        ]
+      },
+      {
+        "source": "/registry.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=60"
+          }
+        ]
+      }
+    ]
+  }
+}

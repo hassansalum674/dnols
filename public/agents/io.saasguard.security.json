@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "namespace": "io.saasguard.security",
+  "name": "SaaSGuard Security Evidence API",
+  "summary": "Security and compliance evidence capabilities for agents evaluating vendors before procurement.",
+  "category": "security",
+  "country": "Kenya",
+  "region": "East Africa",
+  "language": "English",
+  "domain": "saasguard.example",
+  "publicUrl": "https://saasguard.example",
+  "profileUrl": "https://dnols.com/agents/io.saasguard.security.json",
+  "tags": [
+    "security",
+    "compliance",
+    "vendor-risk"
+  ],
+  "trust": "verified",
+  "score": 100,
+  "capabilities": [
+    {
+      "id": "compliance-evidence-request",
+      "name": "Compliance Evidence Request",
+      "description": "Return security and compliance evidence metadata for vendor review workflows.",
+      "tags": [
+        "security",
+        "compliance",
+        "vendor-risk"
+      ],
+      "inputNeeded": "Buyer request details, budget, region, and deadline.",
+      "outputProvided": "Quote or approval-ready deal summary.",
+      "turnaround": "",
+      "priceModel": "quote",
+      "requiresHumanConfirmation": true
+    }
+  ],
+  "agentProfile": {
+    "status": "published",
+    "dealRequests": true,
+    "humanApprovalRequired": true,
+    "maxAutonomousDealValue": 2500,
+    "approvalRequiredAbove": 2500,
+    "currency": "USD",
+    "executionMode": "api-after-approval"
+  },
+  "execution": {
+    "mode": "api-after-approval",
+    "protocol": "rest",
+    "endpointMetadata": "manual_only",
+    "authType": "none",
+    "requiresConfirmation": true
+  },
+  "contact": {
+    "approvalEmail": "security@saasguard.example",
+    "publicContact": "security@saasguard.example"
+  }
+}

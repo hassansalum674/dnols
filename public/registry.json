@@ -1,0 +1,178 @@
+{
+  "registry": "Dnols",
+  "mode": "static-spark",
+  "generatedAt": "2026-06-23T07:41:07.243Z",
+  "positioning": "Business agent profiles for discovery, structured deal requests, and human-approved execution.",
+  "count": 3,
+  "manifests": [
+    {
+      "schemaVersion": 1,
+      "namespace": "com.sanelx",
+      "name": "Sanelx",
+      "summary": "Sanelx helps customers request services, quotes, and business information through an agent-ready listing.",
+      "category": "business-service",
+      "country": "Tanzania",
+      "region": "East Africa",
+      "language": "English",
+      "domain": "sanelx.com",
+      "publicUrl": "https://sanelx.com",
+      "profileUrl": "https://dnols.com/agents/com.sanelx.json",
+      "tags": [
+        "business-service",
+        "website-generated"
+      ],
+      "trust": "self-attested",
+      "score": 90,
+      "capabilities": [
+        {
+          "id": "sanelx-agent-listing",
+          "name": "Sanelx Agent Listing",
+          "description": "Let agents ask Sanelx for service information, quote details, availability, and next steps.",
+          "tags": [
+            "business-service",
+            "website-generated"
+          ],
+          "inputNeeded": "Business request, service need, region, budget, and timeline.",
+          "outputProvided": "Service information, quote details, availability, and next steps.",
+          "turnaround": "Manual follow-up",
+          "priceModel": "quote",
+          "requiresHumanConfirmation": true
+        }
+      ],
+      "agentProfile": {
+        "status": "published",
+        "dealRequests": true,
+        "humanApprovalRequired": true,
+        "maxAutonomousDealValue": 0,
+        "approvalRequiredAbove": 0,
+        "currency": "USD",
+        "executionMode": "manual"
+      },
+      "execution": {
+        "mode": "manual",
+        "protocol": "rest",
+        "endpointMetadata": "manual_only",
+        "authType": "apiKey",
+        "requiresConfirmation": true
+      },
+      "contact": {
+        "approvalEmail": "agents@sanelx.com",
+        "publicContact": "agents@sanelx.com"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "namespace": "com.orbit.logistics",
+      "name": "Orbit Logistics Network",
+      "summary": "Agent-ready logistics capabilities for quoting freight lanes and tracking delivery exceptions.",
+      "category": "logistics",
+      "country": "Tanzania",
+      "region": "East Africa",
+      "language": "English",
+      "domain": "orbit-logistics.example",
+      "publicUrl": "https://orbit-logistics.example",
+      "profileUrl": "https://dnols.com/agents/com.orbit.logistics.json",
+      "tags": [
+        "logistics",
+        "freight",
+        "pricing"
+      ],
+      "trust": "self-attested",
+      "score": 84,
+      "capabilities": [
+        {
+          "id": "freight-quote-request",
+          "name": "Freight Quote Request",
+          "description": "Prepare freight availability and quote information for human-approved logistics requests.",
+          "tags": [
+            "logistics",
+            "freight",
+            "pricing"
+          ],
+          "inputNeeded": "Buyer request details, budget, region, and deadline.",
+          "outputProvided": "Quote or approval-ready deal summary.",
+          "turnaround": "",
+          "priceModel": "quote",
+          "requiresHumanConfirmation": true
+        }
+      ],
+      "agentProfile": {
+        "status": "published",
+        "dealRequests": true,
+        "humanApprovalRequired": true,
+        "maxAutonomousDealValue": 750,
+        "approvalRequiredAbove": 750,
+        "currency": "USD",
+        "executionMode": "manual"
+      },
+      "execution": {
+        "mode": "manual",
+        "protocol": "rest",
+        "endpointMetadata": "manual_only",
+        "authType": "none",
+        "requiresConfirmation": true
+      },
+      "contact": {
+        "approvalEmail": "ops@orbit-logistics.example",
+        "publicContact": "ops@orbit-logistics.example"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "namespace": "io.saasguard.security",
+      "name": "SaaSGuard Security Evidence API",
+      "summary": "Security and compliance evidence capabilities for agents evaluating vendors before procurement.",
+      "category": "security",
+      "country": "Kenya",
+      "region": "East Africa",
+      "language": "English",
+      "domain": "saasguard.example",
+      "publicUrl": "https://saasguard.example",
+      "profileUrl": "https://dnols.com/agents/io.saasguard.security.json",
+      "tags": [
+        "security",
+        "compliance",
+        "vendor-risk"
+      ],
+      "trust": "verified",
+      "score": 100,
+      "capabilities": [
+        {
+          "id": "compliance-evidence-request",
+          "name": "Compliance Evidence Request",
+          "description": "Return security and compliance evidence metadata for vendor review workflows.",
+          "tags": [
+            "security",
+            "compliance",
+            "vendor-risk"
+          ],
+          "inputNeeded": "Buyer request details, budget, region, and deadline.",
+          "outputProvided": "Quote or approval-ready deal summary.",
+          "turnaround": "",
+          "priceModel": "quote",
+          "requiresHumanConfirmation": true
+        }
+      ],
+      "agentProfile": {
+        "status": "published",
+        "dealRequests": true,
+        "humanApprovalRequired": true,
+        "maxAutonomousDealValue": 2500,
+        "approvalRequiredAbove": 2500,
+        "currency": "USD",
+        "executionMode": "api-after-approval"
+      },
+      "execution": {
+        "mode": "api-after-approval",
+        "protocol": "rest",
+        "endpointMetadata": "manual_only",
+        "authType": "none",
+        "requiresConfirmation": true
+      },
+      "contact": {
+        "approvalEmail": "security@saasguard.example",
+        "publicContact": "security@saasguard.example"
+      }
+    }
+  ]
+}

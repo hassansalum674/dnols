@@ -1,0 +1,157 @@
+{
+  "acmVersion": "0.1.0",
+  "namespace": "com.orbit.logistics",
+  "name": "Orbit Logistics Network",
+  "summary": "Agent-ready logistics capabilities for quoting freight lanes, booking shipments, and monitoring cross-border delivery exceptions.",
+  "publisher": {
+    "name": "Orbit Logistics Network",
+    "domain": "orbit-logistics.example",
+    "did": "did:web:orbit-logistics.example",
+    "contact": "agents@orbit-logistics.example"
+  },
+  "capabilities": [
+    {
+      "id": "quote-freight-lane",
+      "name": "Quote Freight Lane",
+      "description": "Return real-time freight pricing, carrier options, capacity constraints, and carbon estimates for a requested origin-destination lane.",
+      "tags": [
+        "logistics",
+        "freight",
+        "pricing"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "origin",
+          "destination",
+          "load"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "load": {
+            "type": "object"
+          },
+          "pickupDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "rates"
+        ],
+        "properties": {
+          "rates": {
+            "type": "array"
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/freight/quotes",
+        "mode": "quote",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      },
+      "examples": [
+        {
+          "intent": "Quote a refrigerated truck from Jeddah to Riyadh for next Tuesday.",
+          "input": {
+            "origin": "Jeddah",
+            "destination": "Riyadh",
+            "load": {
+              "type": "refrigerated",
+              "pallets": 18
+            },
+            "pickupDate": "2026-07-01"
+          }
+        }
+      ]
+    },
+    {
+      "id": "track-delivery-exceptions",
+      "name": "Track Delivery Exceptions",
+      "description": "Surface customs holds, carrier delays, temperature excursions, and delivery risks that require an agent or operator to intervene.",
+      "tags": [
+        "tracking",
+        "exceptions",
+        "logistics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "shipmentId"
+        ],
+        "properties": {
+          "shipmentId": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "exceptions"
+        ],
+        "properties": {
+          "exceptions": {
+            "type": "array"
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/shipments/exceptions",
+        "mode": "read",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      }
+    }
+  ],
+  "pricing": {
+    "model": "quote",
+    "currency": "USD",
+    "plans": [
+      {
+        "name": "Lane quote",
+        "price": 0,
+        "unit": "quote"
+      }
+    ]
+  },
+  "trust": {
+    "verificationStatus": "self-attested",
+    "reputation": {
+      "score": 4.5,
+      "transactionCount": 9120,
+      "disputeRate": 0.009
+    }
+  },
+  "endpoints": {
+    "baseUrl": "https://api.orbit-logistics.example",
+    "manifestUrl": "https://orbit-logistics.example/.well-known/agent-capabilities.json",
+    "protocols": [
+      {
+        "type": "rest",
+        "url": "https://api.orbit-logistics.example/v1"
+      }
+    ],
+    "auth": {
+      "type": "apiKey"
+    },
+    "rateLimits": {
+      "requestsPerMinute": 300
+    },
+    "sla": {
+      "availability": 99.5,
+      "p95LatencyMs": 420
+    }
+  }
+}

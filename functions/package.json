@@ -1,0 +1,13 @@
+{
+  "name": "dnols-functions",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "latest"
+  }
+}

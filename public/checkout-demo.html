@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Checkout Demo</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="checkout-page">
+      <section class="checkout-card">
+        <p class="eyebrow">Demo Checkout</p>
+        <h1>Self-serve payment handoff</h1>
+        <p>
+          In production this redirects to a Stripe Payment Link. This demo page
+          exists so the MVP can show the full self-serve flow without handling
+          invoices or storing payment details.
+        </p>
+        <p id="checkout-plan" class="helper-text"></p>
+        <a class="button primary" href="/">Back to Registry</a>
+      </section>
+    </main>
+    <script>
+      const plan = new URLSearchParams(window.location.search).get("plan") || "professional";
+      document.querySelector("#checkout-plan").textContent = `Selected plan: ${plan}`;
+    </script>
+  </body>
+</html>

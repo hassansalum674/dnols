@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "namespace": "com.sanelx",
+  "name": "Sanelx",
+  "summary": "Sanelx helps customers request services, quotes, and business information through an agent-ready listing.",
+  "category": "business-service",
+  "country": "Tanzania",
+  "region": "East Africa",
+  "language": "English",
+  "domain": "sanelx.com",
+  "publicUrl": "https://sanelx.com",
+  "profileUrl": "https://dnols.com/agents/com.sanelx.json",
+  "tags": [
+    "business-service",
+    "website-generated"
+  ],
+  "trust": "self-attested",
+  "score": 90,
+  "capabilities": [
+    {
+      "id": "sanelx-agent-listing",
+      "name": "Sanelx Agent Listing",
+      "description": "Let agents ask Sanelx for service information, quote details, availability, and next steps.",
+      "tags": [
+        "business-service",
+        "website-generated"
+      ],
+      "inputNeeded": "Business request, service need, region, budget, and timeline.",
+      "outputProvided": "Service information, quote details, availability, and next steps.",
+      "turnaround": "Manual follow-up",
+      "priceModel": "quote",
+      "requiresHumanConfirmation": true
+    }
+  ],
+  "agentProfile": {
+    "status": "published",
+    "dealRequests": true,
+    "humanApprovalRequired": true,
+    "maxAutonomousDealValue": 0,
+    "approvalRequiredAbove": 0,
+    "currency": "USD",
+    "executionMode": "manual"
+  },
+  "execution": {
+    "mode": "manual",
+    "protocol": "rest",
+    "endpointMetadata": "manual_only",
+    "authType": "apiKey",
+    "requiresConfirmation": true
+  },
+  "contact": {
+    "approvalEmail": "agents@sanelx.com",
+    "publicContact": "agents@sanelx.com"
+  }
+}

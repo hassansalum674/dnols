@@ -1,0 +1,94 @@
+[
+  {
+    "reviewStatus": "published",
+    "namespace": "com.sanelx",
+    "businessName": "Sanelx",
+    "domain": "sanelx.com",
+    "summary": "Sanelx helps customers request services, quotes, and business information through an agent-ready listing.",
+    "category": "business-service",
+    "country": "Tanzania",
+    "region": "East Africa",
+    "language": "English",
+    "tags": "business-service, website-generated",
+    "trust": "self-attested",
+    "readinessScore": 90,
+    "capabilityName": "Sanelx Agent Listing",
+    "capabilityDescription": "Let agents ask Sanelx for service information, quote details, availability, and next steps.",
+    "currency": "USD",
+    "maxDealValue": 0,
+    "approvalRequiredAbove": 0,
+    "approvalEmail": "agents@sanelx.com",
+    "protocol": "rest",
+    "executionPreference": "manual",
+    "authType": "apiKey",
+    "agentConfig": {
+      "instructions": {
+        "language": "English"
+      },
+      "capability": {
+        "name": "Sanelx Agent Listing",
+        "description": "Let agents ask Sanelx for service information, quote details, availability, and next steps.",
+        "tags": "business-service, website-generated",
+        "inputNeeded": "Business request, service need, region, budget, and timeline.",
+        "outputProvided": "Service information, quote details, availability, and next steps.",
+        "turnaround": "Manual follow-up",
+        "priceModel": "quote",
+        "requiresConfirmation": true
+      },
+      "negotiationRules": {
+        "currencies": "USD",
+        "maxDealValue": 0,
+        "approvalRequiredAbove": 0
+      },
+      "escalationRules": {
+        "approvalEmail": "agents@sanelx.com"
+      },
+      "execution": {
+        "executionMode": "manual",
+        "authType": "apiKey"
+      }
+    }
+  },
+  {
+    "reviewStatus": "published",
+    "namespace": "com.orbit.logistics",
+    "businessName": "Orbit Logistics Network",
+    "domain": "orbit-logistics.example",
+    "summary": "Agent-ready logistics capabilities for quoting freight lanes and tracking delivery exceptions.",
+    "category": "logistics",
+    "country": "Tanzania",
+    "region": "East Africa",
+    "language": "English",
+    "tags": "logistics, freight, pricing",
+    "trust": "self-attested",
+    "readinessScore": 84,
+    "capabilityName": "Freight Quote Request",
+    "capabilityDescription": "Prepare freight availability and quote information for human-approved logistics requests.",
+    "currency": "USD",
+    "maxDealValue": 750,
+    "approvalRequiredAbove": 750,
+    "approvalEmail": "ops@orbit-logistics.example",
+    "executionPreference": "manual"
+  },
+  {
+    "reviewStatus": "published",
+    "namespace": "io.saasguard.security",
+    "businessName": "SaaSGuard Security Evidence API",
+    "domain": "saasguard.example",
+    "summary": "Security and compliance evidence capabilities for agents evaluating vendors before procurement.",
+    "category": "security",
+    "country": "Kenya",
+    "region": "East Africa",
+    "language": "English",
+    "tags": "security, compliance, vendor-risk",
+    "trust": "verified",
+    "readinessScore": 100,
+    "capabilityName": "Compliance Evidence Request",
+    "capabilityDescription": "Return security and compliance evidence metadata for vendor review workflows.",
+    "currency": "USD",
+    "maxDealValue": 2500,
+    "approvalRequiredAbove": 2500,
+    "approvalEmail": "security@saasguard.example",
+    "executionPreference": "api-after-approval"
+  }
+]

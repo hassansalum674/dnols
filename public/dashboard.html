@@ -1,0 +1,3932 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Business Dashboard — Dnols</title>
+    <meta name="description" content="Manage your Dnols agent, requests, approvals, and settings." />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Lora:wght@600;700&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #05060a;
+        --surface: #0d0f18;
+        --surface-2: #090b12;
+        --border: #1c1f2e;
+        --brand: #4f6ef7;
+        --brand-glow: rgba(79, 110, 247, 0.18);
+        --accent: #00e5c3;
+        --text-1: #f0f1f5;
+        --text-2: #8a8fa8;
+        --text-3: #4a4f68;
+        --danger: #ff6b7a;
+        --warning: #f6c177;
+      }
+
+      :root[data-theme="light"],
+      body[data-theme="light"] {
+        --bg: #f7f8fb;
+        --surface: #ffffff;
+        --surface-2: #eef2ff;
+        --border: #d9deea;
+        --brand: #3f5ee8;
+        --brand-glow: rgba(63, 94, 232, 0.12);
+        --accent: #00a98f;
+        --text-1: #151824;
+        --text-2: #596173;
+        --text-3: #8a91a3;
+        --danger: #c93347;
+        --warning: #9a6500;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 60% 0%, var(--brand-glow), transparent 34rem),
+          var(--bg);
+        color: var(--text-1);
+        font-family: "Inter", system-ui, sans-serif;
+        overflow-x: hidden;
+      }
+
+      html[data-theme="light"],
+      html[data-theme="dark"] {
+        background: var(--bg);
+        color: var(--text-1);
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        border-right: 1px solid var(--border);
+        background: rgba(5, 6, 10, 0.86);
+        backdrop-filter: blur(20px);
+        padding: 22px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      :root[data-theme="light"] .sidebar,
+      body[data-theme="light"] .sidebar {
+        background: rgba(255, 255, 255, 0.86);
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .brand-logo {
+        width: 24px;
+        height: 24px;
+        display: block;
+        object-fit: contain;
+        filter: invert(1);
+      }
+
+      :root[data-theme="light"] .brand-logo,
+      body[data-theme="light"] .brand-logo {
+        filter: none;
+      }
+
+      .business-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 14px;
+      }
+
+      .business-card strong,
+      .business-card span {
+        display: block;
+      }
+
+      .business-card span {
+        margin-top: 6px;
+        color: var(--text-2);
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav-btn {
+        min-height: 42px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--text-2);
+        text-align: left;
+        padding: 0 12px;
+        cursor: pointer;
+      }
+
+      .nav-btn.active {
+        border-color: var(--border);
+        background: var(--brand-glow);
+        color: var(--text-1);
+      }
+
+      .nav-btn.agent-nav {
+        border-color: rgba(0, 229, 195, 0.28);
+        color: var(--text-1);
+      }
+
+      .signout {
+        margin-top: auto;
+        min-height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: transparent;
+        color: var(--text-2);
+        cursor: pointer;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 28px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .topbar-actions {
+        display: grid;
+        gap: 10px;
+        justify-items: end;
+        min-width: min(380px, 42vw);
+      }
+
+      .topbar h1 {
+        margin: 0;
+        font-family: "Lora", Georgia, serif;
+        font-size: clamp(30px, 4vw, 44px);
+        line-height: 1.1;
+        letter-spacing: -0.04em;
+      }
+
+      .topbar p {
+        display: none;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border: 1px solid rgba(0, 229, 195, 0.32);
+        border-radius: 999px;
+        color: var(--accent);
+        background: rgba(0, 229, 195, 0.08);
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .dashboard-search {
+        position: relative;
+        width: 100%;
+      }
+
+      .dashboard-search input {
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 10px 14px;
+      }
+
+      .search-results {
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 8px);
+        right: 0;
+        width: min(420px, 84vw);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+        padding: 8px;
+      }
+
+      .search-results[hidden] {
+        display: none;
+      }
+
+      .search-result {
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--text-1);
+        cursor: pointer;
+        display: block;
+        padding: 10px;
+        text-align: left;
+      }
+
+      .search-result:hover,
+      .search-result:focus {
+        background: var(--brand-glow);
+        outline: none;
+      }
+
+      .search-result span {
+        color: var(--text-2);
+        display: block;
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .mobile-nav {
+        display: none;
+        gap: 8px;
+        overflow-x: auto;
+        margin-bottom: 18px;
+        padding-bottom: 6px;
+      }
+
+      .mobile-only {
+        display: none;
+      }
+
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .choice-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .agent-menu-list {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr;
+        max-width: 760px;
+      }
+
+      .agent-menu-list .quick-card {
+        align-items: center;
+        display: flex;
+        gap: 14px;
+        justify-content: space-between;
+      }
+
+      .agent-menu-list .quick-card::after {
+        content: "";
+      }
+
+      .quick-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        color: var(--text-1);
+        cursor: pointer;
+        padding: 14px 16px;
+        text-align: left;
+      }
+
+      .quick-card.featured {
+        border-color: rgba(0, 229, 195, 0.44);
+        background: linear-gradient(135deg, var(--surface), var(--brand-glow));
+      }
+
+      .quick-card strong,
+      .quick-card span {
+        display: block;
+      }
+
+      .quick-card span {
+        display: none;
+      }
+
+      .focus-pulse {
+        border-color: rgba(0, 229, 195, 0.65) !important;
+        box-shadow: 0 0 0 4px var(--brand-glow);
+      }
+
+      .cards {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .two-col {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .panel,
+      .metric,
+      .item {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+      }
+
+      .panel {
+        padding: 20px;
+      }
+
+      .agent-section #agentChoices,
+      .agent-section .agent-dashboard-summary,
+      .agent-section .agent-subpanel {
+        display: none;
+      }
+
+      .agent-section[data-agent-view="menu"] #agentChoices,
+      .agent-section[data-agent-view="agentChatPanel"] #agentChatPanel,
+      .agent-section[data-agent-view="agentNegotiationPanel"] #agentNegotiationPanel,
+      .agent-section[data-agent-view="agentTestPanel"] #agentTestPanel,
+      .agent-section[data-agent-view="agentCapabilityPanel"] #agentCapabilityPanel,
+      .agent-section[data-agent-view="agentNegotiationRulesPanel"] #agentInstructionsPanel,
+      .agent-section[data-agent-view="agentNegotiationRulesPanel"] #agentNegotiationRulesPanel,
+      .agent-section[data-agent-view="agentEscalationPanel"] #agentEscalationPanel,
+      .agent-section[data-agent-view="agentToolsPanel"] #agentToolsPanel,
+      .agent-section[data-agent-view="agentMemoryPanel"] #agentMemoryPanel,
+      .agent-section[data-agent-view="agentActivityPanel"] #agentActivityPanel {
+        display: block;
+      }
+
+      .agent-subpanels {
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel-header-actions {
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 14px;
+      }
+
+      .metric {
+        padding: 18px;
+      }
+
+      .metric span,
+      .small,
+      .item span {
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 28px;
+      }
+
+      .panel h2 {
+        margin: 0 0 14px;
+        font-family: "Lora", Georgia, serif;
+        letter-spacing: -0.035em;
+      }
+
+      .section {
+        display: none;
+      }
+
+      .section.active {
+        display: grid;
+        gap: 18px;
+      }
+
+      .overview-section.active {
+        gap: 20px;
+      }
+
+      .overview-hero {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(79, 110, 247, 0.28);
+        border-radius: 28px;
+        background:
+          radial-gradient(circle at 85% 12%, rgba(0, 229, 195, 0.16), transparent 24rem),
+          linear-gradient(135deg, rgba(79, 110, 247, 0.16), rgba(13, 15, 24, 0.78) 48%, var(--surface));
+        padding: clamp(22px, 4vw, 40px);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+      }
+
+      .overview-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -12% -45% auto;
+        width: min(420px, 56vw);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 229, 195, 0.2), transparent 68%);
+        pointer-events: none;
+      }
+
+      :root[data-theme="light"] .overview-hero,
+      body[data-theme="light"] .overview-hero {
+        background:
+          radial-gradient(circle at 85% 12%, rgba(0, 169, 143, 0.14), transparent 24rem),
+          linear-gradient(135deg, rgba(63, 94, 232, 0.12), rgba(255, 255, 255, 0.88) 48%, var(--surface));
+        box-shadow: 0 24px 70px rgba(32, 45, 82, 0.1);
+      }
+
+      .overview-copy {
+        position: relative;
+        z-index: 1;
+        max-width: 900px;
+      }
+
+      .overview-eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .overview-copy h2 {
+        max-width: 760px;
+        margin: 12px 0 0;
+        font-family: "Lora", Georgia, serif;
+        font-size: clamp(34px, 5vw, 62px);
+        line-height: 0.98;
+        letter-spacing: -0.06em;
+      }
+
+      .overview-copy p {
+        max-width: 680px;
+        margin: 18px 0 0;
+        color: var(--text-2);
+        font-size: clamp(16px, 2vw, 19px);
+        line-height: 1.55;
+      }
+
+      .overview-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 28px;
+      }
+
+      .overview-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 50px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-1);
+        cursor: pointer;
+        font-weight: 800;
+        padding: 0 18px;
+      }
+
+      :root[data-theme="light"] .overview-action,
+      body[data-theme="light"] .overview-action {
+        border-color: rgba(21, 24, 36, 0.12);
+        background: rgba(255, 255, 255, 0.68);
+      }
+
+      .overview-action.primary {
+        border-color: var(--brand);
+        background: var(--brand);
+      }
+
+      .overview-status-line {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 30px;
+      }
+
+      .overview-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 8px;
+        min-height: 36px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        background: rgba(5, 6, 10, 0.28);
+        padding: 8px 12px;
+      }
+
+      :root[data-theme="light"] .overview-chip,
+      body[data-theme="light"] .overview-chip {
+        border-color: rgba(21, 24, 36, 0.1);
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .overview-chip span {
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .overview-chip strong {
+        color: var(--text-1);
+        font-size: 15px;
+      }
+
+      .overview-flow {
+        display: grid;
+        gap: 0;
+        border-block: 1px solid var(--border);
+      }
+
+      .overview-flow-step {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 18px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .overview-flow-step:last-child {
+        border-bottom: 0;
+      }
+
+      .overview-flow-step strong,
+      .overview-flow-step span {
+        display: block;
+      }
+
+      .overview-flow-step strong {
+        font-size: 15px;
+      }
+
+      .overview-flow-step span {
+        color: var(--text-2);
+        line-height: 1.5;
+      }
+
+      .overview-publish {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background:
+          linear-gradient(135deg, rgba(0, 229, 195, 0.08), transparent 44%),
+          var(--surface);
+        padding: 22px;
+      }
+
+      .overview-publish-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .overview-publish h2 {
+        margin: 0;
+        font-family: "Lora", Georgia, serif;
+        letter-spacing: -0.035em;
+      }
+
+      .overview-publish p {
+        margin: 8px 0 0;
+        color: var(--text-2);
+        line-height: 1.5;
+      }
+
+      .overview-publish-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .overview-publish .list {
+        margin-top: 16px;
+      }
+
+      .overview-publish .list .item {
+        border-color: transparent;
+        background: var(--surface-2);
+      }
+
+      form,
+      .form-grid,
+      .list,
+      .status {
+        display: grid;
+        gap: 14px;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--text-2);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text-1);
+        padding: 12px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 104px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 4px var(--brand-glow);
+      }
+
+      .btn {
+        min-height: 46px;
+        border: 1px solid var(--brand);
+        border-radius: 8px;
+        background: var(--brand);
+        color: var(--text-1);
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0 16px;
+      }
+
+      .btn.secondary {
+        border-color: var(--border);
+        background: transparent;
+        color: var(--text-2);
+      }
+
+      .item {
+        padding: 14px;
+      }
+
+      .item strong,
+      .item span,
+      .item p {
+        display: block;
+      }
+
+      .item p {
+        color: var(--text-2);
+        line-height: 1.5;
+        margin: 8px 0 0;
+      }
+
+      .item-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .orders-section.active {
+        align-items: start;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .order-room-panel {
+        min-width: 0;
+      }
+
+      .panel-title-row,
+      .deal-room-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .panel-title-row h2,
+      .deal-room-head h2 {
+        margin-bottom: 6px;
+      }
+
+      .panel-title-row .small,
+      .deal-room-head .small {
+        display: none;
+      }
+
+      .deal-room-head-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .deal-room-head-actions[hidden] {
+        display: none;
+      }
+
+      .deal-room-head-actions .btn {
+        min-height: 38px;
+        padding: 0 12px;
+      }
+
+      .order-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 2px;
+      }
+
+      .order-action-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .order-action-primary .btn {
+        width: 100%;
+      }
+
+      .order-action-label {
+        color: var(--text-3);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        min-width: 58px;
+        text-transform: uppercase;
+      }
+
+      .order-actions .btn {
+        min-height: 38px;
+        padding: 0 12px;
+      }
+
+      .deal-room-content {
+        min-width: 0;
+      }
+
+      .deal-room-order-select {
+        max-width: 260px;
+        min-width: 180px;
+      }
+
+      .deal-room-stack,
+      .deal-room-section {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .deal-room-section h3 {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+      }
+
+      .deal-room-feed {
+        max-height: 430px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .deal-room-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .deal-room-tab {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text-2);
+        cursor: pointer;
+        font-weight: 700;
+        min-height: 38px;
+        padding: 0 14px;
+      }
+
+      .deal-room-tab.active {
+        border-color: rgba(0, 229, 195, 0.5);
+        background: rgba(0, 229, 195, 0.12);
+        color: var(--text-1);
+      }
+
+      .deal-room-tab.priority {
+        border-color: rgba(0, 229, 195, 0.38);
+        color: var(--text-1);
+      }
+
+      .deal-room-tab:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .deal-room-pane {
+        display: none;
+      }
+
+      .deal-room-pane.active {
+        display: grid;
+        gap: 14px;
+      }
+
+      .order-workspace-actions {
+        display: grid;
+        gap: 14px;
+      }
+
+      .deal-room-status-strip {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .deal-room-status-strip .item,
+      .execution-summary {
+        background: var(--surface-2);
+      }
+
+      .deal-room-status-strip .item p {
+        color: var(--text-1);
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .order-workspace-actions .order-action-group {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 14px;
+      }
+
+      .order-action-copy {
+        color: var(--text-3);
+        flex-basis: 100%;
+        font-size: 13px;
+        line-height: 1.45;
+        margin: 0;
+      }
+
+      .deal-room-composer {
+        border-top: 1px solid var(--border);
+        margin-top: 0;
+        padding-top: 14px;
+      }
+
+      .message {
+        border-left: 3px solid var(--border);
+        color: var(--text-2);
+        line-height: 1.5;
+        margin: 0;
+        padding-left: 10px;
+      }
+
+      .message.ok {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .message.error {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+
+      body.modal-open {
+        overflow: hidden;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(5, 6, 10, 0.72);
+        backdrop-filter: blur(12px);
+      }
+
+      .modal-backdrop[hidden] {
+        display: none;
+      }
+
+      .modal-card {
+        width: min(520px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+        padding: 22px;
+      }
+
+      .modal-card h2 {
+        margin: 0;
+        font-family: "Lora", Georgia, serif;
+        letter-spacing: -0.035em;
+      }
+
+      .modal-card .small {
+        margin: 8px 0 0;
+        line-height: 1.5;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+
+      .agent-chat-thread {
+        min-height: 260px;
+        max-height: 460px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .chat-bubble {
+        width: min(82%, 720px);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px 14px;
+        color: var(--text-1);
+        line-height: 1.5;
+      }
+
+      .chat-bubble.owner {
+        justify-self: end;
+        border-color: rgba(79, 110, 247, 0.5);
+        background: var(--brand-glow);
+      }
+
+      .chat-bubble.agent {
+        justify-self: start;
+        background: var(--surface);
+      }
+
+      .chat-bubble span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .chat-bubble p {
+        margin: 0;
+      }
+
+      .chat-actions {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: var(--text-2);
+      }
+
+      .chat-actions li {
+        margin-top: 4px;
+      }
+
+      .agent-chat-form {
+        margin-top: 14px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        min-height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+
+      .upgrade-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 18px;
+      }
+
+      .full-span {
+        grid-column: 1 / -1;
+      }
+
+      .security-footer {
+        display: none;
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        .main {
+          padding: 14px;
+        }
+
+        .topbar-actions {
+          justify-items: stretch;
+          min-width: 100%;
+          width: 100%;
+        }
+
+        .mobile-nav {
+          display: flex;
+        }
+
+        .mobile-only {
+          display: block;
+        }
+
+        .mobile-nav .nav-btn {
+          white-space: nowrap;
+          border-color: var(--border);
+          min-height: 38px;
+          padding: 0 10px;
+          font-size: 13px;
+        }
+
+        .desktop-only {
+          display: none !important;
+        }
+
+        .cards,
+        .choice-grid,
+        .two-col,
+        .orders-section.active,
+        .deal-room-content,
+        .deal-room-status-strip,
+        .form-grid,
+        .upgrade-grid,
+        .workspace-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .full-span {
+          grid-column: auto;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .topbar h1 {
+          font-size: 28px;
+        }
+
+        .metric,
+        .panel,
+        .security-footer {
+          border-radius: 14px;
+          padding: 14px;
+        }
+
+        .item {
+          padding: 12px;
+        }
+
+        .panel-title-row,
+        .deal-room-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .order-action-group {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .order-action-label {
+          min-width: 0;
+        }
+
+        .order-actions .btn {
+          width: 100%;
+        }
+
+        .deal-room-tabs {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .deal-room-tab {
+          width: 100%;
+        }
+
+        .deal-room-feed {
+          max-height: none;
+          padding-right: 0;
+        }
+
+        .order-workspace-actions .order-action-group {
+          padding: 12px;
+        }
+
+        textarea {
+          min-height: 92px;
+        }
+
+        .modal-backdrop {
+          align-items: end;
+          padding: 14px;
+        }
+
+        .modal-card {
+          width: 100%;
+          max-height: calc(100vh - 28px);
+          border-radius: 16px;
+          padding: 18px;
+        }
+
+        .overview-hero {
+          border-radius: 20px;
+          padding: 22px;
+        }
+
+        .overview-copy h2 {
+          font-size: 36px;
+        }
+
+        .overview-action {
+          justify-content: center;
+          width: 100%;
+        }
+
+        .overview-status-line {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .overview-chip {
+          justify-content: space-between;
+        }
+
+        .overview-flow-step {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+
+        .overview-publish {
+          border-radius: 18px;
+          padding: 16px;
+        }
+
+        .overview-publish-head {
+          display: grid;
+        }
+
+        .overview-publish-meta {
+          justify-content: flex-start;
+        }
+
+        .modal-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("dnols.theme") || "dark";
+        const systemTheme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        const theme = savedTheme === "system" ? systemTheme : savedTheme;
+        document.documentElement.dataset.theme = theme;
+        document.body.dataset.theme = theme;
+      })();
+    </script>
+    <div class="app">
+      <aside class="sidebar">
+        <a class="logo" href="/">
+          <img class="brand-logo" src="/logo.png" alt="" aria-hidden="true" />
+          <span>Dnols</span>
+        </a>
+        <div class="business-card">
+          <strong id="sidebarBusiness">Loading...</strong>
+          <span id="sidebarEmail"></span>
+        </div>
+        <nav class="nav-list" id="sideNav"></nav>
+        <button class="signout" id="signOutBtn" type="button">Sign out</button>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h1 id="pageTitle">Dashboard</h1>
+            <p id="pageSubtitle"></p>
+          </div>
+          <div class="topbar-actions">
+            <div class="dashboard-search">
+              <input id="dashboardSearch" type="search" placeholder="Search" autocomplete="off" />
+              <div id="dashboardSearchResults" class="search-results" hidden></div>
+            </div>
+            <span class="status-pill" id="profileStatus">...</span>
+          </div>
+        </div>
+        <nav class="mobile-nav" id="mobileNav"></nav>
+        <div class="message mobile-only" id="mobileModeNotice">
+          Key areas only.
+        </div>
+
+        <section class="section active overview-section" data-section="overview">
+          <div class="overview-hero">
+            <div class="overview-copy">
+              <span class="overview-eyebrow">Dnols business agent</span>
+              <h2>Your agent for business requests.</h2>
+              <p>Dnols receives customer requests, negotiates within your rules, asks for approval when needed, and records every message.</p>
+              <div class="overview-actions">
+                <button class="overview-action primary" data-route="agent" data-focus="agentChatPanel" type="button">Talk to agent</button>
+                <button class="overview-action" data-route="inbox" type="button">Review requests</button>
+                <button class="overview-action" data-route="orders" type="button">Agent requests</button>
+                <button class="overview-action" data-route="overview" data-focus="publishPanel" type="button">Publish profile</button>
+              </div>
+            </div>
+            <div class="overview-status-line" aria-label="Dashboard status">
+              <div class="overview-chip">
+                <span>Readiness</span>
+                <strong><span id="metricReadiness">0</span>%</strong>
+              </div>
+              <div class="overview-chip">
+                <span>Inbox</span>
+                <strong id="metricInbox">0</strong>
+              </div>
+              <div class="overview-chip">
+                <span>Requests</span>
+                <strong id="metricOrders">0</strong>
+              </div>
+              <div class="overview-chip">
+                <span>Agent</span>
+                <strong id="metricAgentStatus">Draft</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="overview-flow" aria-label="How Dnols works">
+            <div class="overview-flow-step">
+              <strong>Receive</strong>
+              <span>Your business agent captures incoming requests and keeps them organized.</span>
+            </div>
+            <div class="overview-flow-step">
+              <strong>Negotiate</strong>
+              <span>It drafts responses using your services, limits, tone, and approval rules.</span>
+            </div>
+            <div class="overview-flow-step">
+              <strong>Approve</strong>
+              <span>Important decisions come back to you before anything is confirmed.</span>
+            </div>
+            <div class="overview-flow-step">
+              <strong>Record</strong>
+              <span>Messages, approvals, and request history stay attached to the deal room.</span>
+            </div>
+          </div>
+
+          <section class="overview-publish" id="publishPanel">
+            <div class="overview-publish-head">
+              <div>
+                <h2>Public profile</h2>
+                <p>Publish your Dnols profile when your business details are ready.</p>
+              </div>
+              <div class="overview-publish-meta">
+                <div class="overview-chip">
+                  <span>Registry</span>
+                  <strong id="publishRegistryStatus">Not published</strong>
+                </div>
+                <div class="overview-chip">
+                  <span>Preview</span>
+                  <strong id="publishPreviewState">Needs info</strong>
+                </div>
+              </div>
+            </div>
+            <div id="publishChecklist" class="list"></div>
+            <div class="item-actions">
+              <button class="btn" id="submitReviewBtn" type="button">Submit for review</button>
+              <button class="btn secondary" id="pausePublishBtn" type="button">Pause listing</button>
+              <button class="btn secondary" id="resumePublishBtn" type="button">Resume listing</button>
+              <button class="btn secondary" id="previewListingBtn" type="button">Preview listing</button>
+            </div>
+            <div id="publishStatus" class="status"></div>
+            <div id="publicPreview" class="list"></div>
+          </section>
+
+          <div hidden>
+            <span id="metricSent">0</span>
+            <div id="overviewRules" class="list"></div>
+            <div id="overviewAgentRun" class="list"></div>
+            <div id="recentActivity" class="list"></div>
+          </div>
+        </section>
+
+        <section class="section agent-section" data-section="agent" data-agent-view="menu">
+          <div class="panel full-span" id="agentChoices">
+            <h2>Agent Space</h2>
+            <div class="agent-menu-list">
+              <button class="quick-card featured" data-route="agent" data-focus="agentChatPanel" type="button">
+                <strong>Talk to agent</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentNegotiationPanel" type="button">
+                <strong>Negotiation draft</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentTestPanel" type="button">
+                <strong>Test agent</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentCapabilityPanel" type="button">
+                <strong>Capabilities</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentNegotiationRulesPanel" type="button">
+                <strong>Negotiation rules</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentEscalationPanel" type="button">
+                <strong>Human approval</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentToolsPanel" type="button">
+                <strong>Tools</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentMemoryPanel" type="button">
+                <strong>Memory</strong>
+              </button>
+              <button class="quick-card" data-route="agent" data-focus="agentActivityPanel" type="button">
+                <strong>Recent runs</strong>
+              </button>
+            </div>
+          </div>
+          <div class="grid cards agent-dashboard-summary">
+            <article class="metric">
+              <span>Status</span>
+              <strong id="agentStatusMetric">Draft</strong>
+            </article>
+            <article class="metric">
+              <span>Approval</span>
+              <strong id="agentApprovalMetric">Human</strong>
+            </article>
+            <article class="metric">
+              <span>Execution</span>
+              <strong id="agentExecutionMetric">Manual</strong>
+            </article>
+            <article class="metric">
+              <span>Last test</span>
+              <strong id="agentLastTestMetric">None</strong>
+            </article>
+          </div>
+
+          <div class="agent-subpanels">
+            <article class="panel agent-subpanel" id="agentInstructionsPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Instructions</h2>
+              <form id="agentInstructionsForm">
+                <label>Role <textarea name="role" placeholder="Represent this business in B2B requests."></textarea></label>
+                <div class="form-grid">
+                  <label>Tone
+                    <select name="tone">
+                      <option value="professional">Professional</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="strict">Strict</option>
+                      <option value="concise">Concise</option>
+                    </select>
+                  </label>
+                  <label>Preferred language <input name="language" placeholder="English" /></label>
+                </div>
+                <label>Required wording <textarea name="alwaysSay" placeholder="Mention owner approval before final execution."></textarea></label>
+                <label>Avoid saying <textarea name="neverSay" placeholder="Never reveal private prices or internal limits."></textarea></label>
+                <label>Private rules <textarea name="privateRules" placeholder="Review custom terms."></textarea></label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentInstructionsStatus" class="status"></div>
+            </article>
+
+            <article class="panel agent-subpanel" id="agentCapabilityPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Capabilities</h2>
+              <form id="agentCapabilityForm">
+                <div class="form-grid">
+                  <label>Capability name <input name="name" placeholder="Request automation quote" /></label>
+                  <label>Tags <input name="tags" placeholder="automation, b2b, quotes" /></label>
+                </div>
+                <label>Description <textarea name="description" placeholder="What buyers can request."></textarea></label>
+                <label>Buyer input <textarea name="inputNeeded" placeholder="Budget, deadline, region, requirements."></textarea></label>
+                <label>Agent output <textarea name="outputProvided" placeholder="Quote, timeline, approval draft."></textarea></label>
+                <div class="form-grid">
+                  <label>Turnaround time <input name="turnaround" placeholder="24 hours" /></label>
+                  <label>Price model <input name="priceModel" placeholder="Quote first" /></label>
+                </div>
+                <label>Owner confirmation
+                  <select name="requiresConfirmation">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentCapabilityStatus" class="status"></div>
+            </article>
+
+            <article class="panel agent-subpanel" id="agentNegotiationRulesPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Negotiation Rules</h2>
+              <form id="agentNegotiationForm">
+                <div class="form-grid">
+                  <label>Private minimum price <input name="minimumPrice" type="number" min="0" step="1" /></label>
+                  <label>Standard quote range <input name="quoteRange" placeholder="USD 500-1500" /></label>
+                  <label>Max discount % <input name="maxDiscount" type="number" min="0" max="100" step="1" /></label>
+                  <label>Max request value <input name="maxDealValue" type="number" min="0" step="1" /></label>
+                  <label>Approval above <input name="approvalRequiredAbove" type="number" min="0" step="1" /></label>
+                  <label>Accepted currencies <input name="currencies" placeholder="USD, TZS" /></label>
+                </div>
+                <label>Payment terms <textarea name="paymentTerms" placeholder="Quote first, pay after approval."></textarea></label>
+                <label>Deadline flexibility <textarea name="deadlineFlexibility" placeholder="Changes up to 3 days."></textarea></label>
+                <label>Preferred customers <textarea name="preferredCustomers" placeholder="B2B customers in East Africa."></textarea></label>
+                <label>Blocked customers or regions <textarea name="blocked" placeholder="Regions, industries, or customers to avoid."></textarea></label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentNegotiationStatus" class="status"></div>
+            </article>
+
+            <article class="panel agent-subpanel" id="agentEscalationPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Human Approval</h2>
+              <form id="agentEscalationForm">
+                <div class="form-grid">
+                  <label>Approval email <input name="approvalEmail" type="email" /></label>
+                  <label>Phone / WhatsApp <input name="approvalPhone" placeholder="+255..." /></label>
+                  <label>Review window <input name="timeout" placeholder="24 hours" /></label>
+                  <label>Confidence threshold <input name="confidenceThreshold" type="number" min="0" max="100" step="1" /></label>
+                </div>
+                <label><input name="customTerms" type="checkbox" value="true" /> Custom terms need review</label>
+                <label><input name="outsideRegion" type="checkbox" value="true" /> Outside region needs review</label>
+                <label><input name="priceAboveThreshold" type="checkbox" value="true" /> High value needs review</label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentEscalationStatus" class="status"></div>
+            </article>
+
+            <article class="panel agent-subpanel" id="agentToolsPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Tools</h2>
+              <form id="agentToolsForm">
+                <div class="form-grid">
+                  <label>Execution mode
+                    <select name="executionMode">
+                      <option value="manual">Manual</option>
+                      <option value="api-after-approval">API after approval</option>
+                      <option value="mcp-ready">MCP-ready</option>
+                      <option value="a2a-ready">A2A-ready</option>
+                    </select>
+                  </label>
+                  <label>Endpoint URL <input name="endpoint" placeholder="https://api.business.com/agent" /></label>
+                  <label>Auth type
+                    <select name="authType">
+                      <option value="none">None</option>
+                      <option value="apiKey">API key</option>
+                      <option value="oauth2">OAuth</option>
+                    </select>
+                  </label>
+                  <label>Required headers <input name="headers" placeholder="Idempotency-Key, X-Business-ID" /></label>
+                </div>
+                <label><input name="requiresIdempotencyKey" type="checkbox" value="true" /> Idempotency key required</label>
+                <label><input name="requiresConfirmation" type="checkbox" value="true" /> Owner approval required</label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentToolsStatus" class="status"></div>
+            </article>
+
+            <article class="panel agent-subpanel" id="agentMemoryPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Memory</h2>
+              <form id="agentMemoryForm">
+                <label>Services offered <textarea name="services"></textarea></label>
+                <label>Service areas <textarea name="serviceAreas"></textarea></label>
+                <label>Operating hours <textarea name="operatingHours"></textarea></label>
+                <label>FAQs <textarea name="faqs"></textarea></label>
+                <label>Policies <textarea name="policies"></textarea></label>
+                <label>Required buyer information <textarea name="requiredBuyerInfo"></textarea></label>
+                <label>Preferred partners <textarea name="preferredPartners"></textarea></label>
+                <label>Blocked list <textarea name="blacklist"></textarea></label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="agentMemoryStatus" class="status"></div>
+            </article>
+
+            <article class="panel full-span agent-subpanel" id="agentTestPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Test</h2>
+              <form id="agentTestForm">
+                <div class="form-grid">
+                  <label>Buyer budget <input name="budget" type="number" min="0" step="1" placeholder="500" /></label>
+                  <label>Buyer region <input name="region" placeholder="East Africa" /></label>
+                  <label>Deadline <input name="deadline" type="date" /></label>
+                  <label>Capability requested <input name="capability" placeholder="Request automation quote" /></label>
+                </div>
+                <label>Buyer request <textarea name="request" placeholder="We need automation for our supplier onboarding workflow."></textarea></label>
+                <button class="btn" type="submit">Run test</button>
+              </form>
+              <div id="agentTestResult" class="status"></div>
+            </article>
+
+            <article class="panel full-span agent-subpanel" id="agentChatPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Talk to agent</h2>
+              <div id="agentChatThread" class="agent-chat-thread" aria-live="polite"></div>
+              <form id="agentChatForm" class="agent-chat-form">
+                <label>Message
+                  <textarea name="message" placeholder="Ask anything." required></textarea>
+                </label>
+                <div class="item-actions">
+                  <button class="btn" type="submit">Send</button>
+                </div>
+              </form>
+              <div id="agentChatStatus" class="status"></div>
+            </article>
+
+            <article class="panel full-span agent-subpanel" id="agentNegotiationPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Negotiation draft</h2>
+              <form id="agentNegotiationTaskForm">
+                <div class="form-grid">
+                  <label>Target business <input name="targetName" placeholder="Buyer or partner name" required /></label>
+                  <label>Capability <input name="capability" placeholder="Request automation quote" required /></label>
+                  <label>Budget <input name="budgetAmount" type="number" min="0" step="1" placeholder="500" /></label>
+                  <label>Currency <input name="currency" maxlength="3" placeholder="USD" /></label>
+                  <label>Region <input name="region" placeholder="East Africa" /></label>
+                  <label>Deadline <input name="deadline" type="date" /></label>
+                </div>
+                <label>Request <textarea name="request" placeholder="Prepare a negotiation draft for review." required></textarea></label>
+                <label>Owner notes <textarea name="notes" placeholder="Optional note for this draft."></textarea></label>
+                <div class="item-actions">
+                  <button class="btn" type="submit">Create draft</button>
+                  <button class="btn secondary" id="autofillApprovalBtn" type="button" disabled>Fill approval</button>
+                  <button class="btn secondary" id="saveNegotiationInboxBtn" type="button" disabled>Save to inbox</button>
+                  <button class="btn secondary" id="clearNegotiationBtn" type="button">Clear</button>
+                </div>
+              </form>
+              <div id="agentNegotiationResult" class="status"></div>
+            </article>
+
+            <article class="panel full-span agent-subpanel" id="agentActivityPanel">
+              <div class="panel-header-actions">
+                <button class="btn secondary" data-agent-menu-return type="button">Back</button>
+              </div>
+              <h2>Recent runs</h2>
+              <div id="agentRunsList" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" data-section="profile">
+          <article class="panel">
+            <h2>Profile</h2>
+            <form id="profileForm">
+              <div class="form-grid">
+                <label>Business name <input name="businessName" required /></label>
+                <label>Domain <input name="domain" placeholder="sanelx.com" /></label>
+                <label>Category <input name="category" placeholder="automation" /></label>
+                <label>Country <input name="country" placeholder="Tanzania" /></label>
+                <label>Region <input name="region" placeholder="East Africa" /></label>
+                <label>Language <input name="language" placeholder="English" /></label>
+              </div>
+              <label>Business summary <textarea name="summary"></textarea></label>
+              <div class="form-grid">
+                <label>Primary capability <input name="capabilityName" placeholder="Website automation" /></label>
+                <label>Tags <input name="tags" placeholder="automation, b2b, ai-services" /></label>
+              </div>
+              <label>Capability description <textarea name="capabilityDescription"></textarea></label>
+              <div class="form-grid">
+                <label>Max request value <input name="maxDealValue" type="number" min="0" step="1" /></label>
+                <label>Approval required above <input name="approvalRequiredAbove" type="number" min="0" step="1" /></label>
+                <label>Currency <input name="currency" maxlength="3" placeholder="USD" /></label>
+                <label>Approval email <input name="approvalEmail" type="email" /></label>
+              </div>
+              <button class="btn" type="submit">Save</button>
+            </form>
+            <div id="profileStatusBox" class="status"></div>
+          </article>
+        </section>
+
+        <section class="section" data-section="inbox">
+          <article class="panel">
+            <h2>Inbox</h2>
+            <button class="btn secondary" id="sampleInboxBtn" type="button">Add sample</button>
+            <div id="inboxStatus" class="status"></div>
+            <div id="inboxList" class="list"></div>
+          </article>
+        </section>
+
+        <section class="section" data-section="sent">
+          <article class="panel">
+            <h2>Send</h2>
+            <form id="sentForm">
+              <div class="form-grid">
+                <label>Target namespace <input name="targetNamespace" placeholder="com.sanelx" required /></label>
+                <label>Target business <input name="targetName" placeholder="Sanelx" required /></label>
+                <label>Capability <input name="capabilityId" placeholder="sanelx-service" required /></label>
+                <label>Deadline <input name="deadline" type="date" required /></label>
+                <label>Budget <input name="budgetAmount" type="number" min="1" step="1" required /></label>
+                <label>Currency <input name="currency" maxlength="3" placeholder="USD" required /></label>
+              </div>
+              <label>What do you need? <textarea name="requirements" required></textarea></label>
+              <button class="btn" type="submit">Send</button>
+            </form>
+            <div id="sentStatus" class="status"></div>
+          </article>
+          <article class="panel">
+            <h2>Sent</h2>
+            <div id="sentList" class="list"></div>
+          </article>
+        </section>
+
+        <section class="section orders-section" data-section="orders">
+          <article class="panel order-room-panel" id="dealRoomPanel">
+            <div class="deal-room-head">
+              <div>
+                <h2 id="dealRoomTitle">Agent Request</h2>
+                <p id="dealRoomSubtitle" class="small"></p>
+              </div>
+              <div class="deal-room-head-actions" id="dealRoomPrimaryActions" hidden></div>
+              <select id="dealRoomOrderSelect" class="deal-room-order-select" aria-label="Agent request" hidden></select>
+            </div>
+            <div class="deal-room-tabs" role="tablist" aria-label="Selected agent request workspace">
+              <button class="deal-room-tab active" data-deal-room-tab="details" type="button" role="tab" aria-selected="true">Details</button>
+              <button class="deal-room-tab" data-deal-room-tab="messages" type="button" role="tab" aria-selected="false">Messages</button>
+              <button class="deal-room-tab" data-deal-room-tab="timeline" type="button" role="tab" aria-selected="false">Timeline</button>
+              <button class="deal-room-tab priority" data-deal-room-tab="actions" type="button" role="tab" aria-selected="false">Actions</button>
+            </div>
+            <div class="deal-room-content">
+              <section class="deal-room-pane active" data-deal-room-pane="details" role="tabpanel">
+                <div class="deal-room-section">
+                  <h3>Details</h3>
+                  <div id="dealRoomSummary" class="list"></div>
+                </div>
+              </section>
+              <section class="deal-room-pane" data-deal-room-pane="messages" role="tabpanel">
+                <div class="deal-room-section">
+                  <h3>Messages</h3>
+                  <div id="dealRoomMessages" class="list deal-room-feed"></div>
+                </div>
+                <form id="dealRoomMessageForm" class="deal-room-composer">
+                  <label>Message <textarea name="body" placeholder="Share an update" required></textarea></label>
+                  <div class="form-grid">
+                    <label>Recipient
+                      <select name="recipientRole">
+                        <option value="partner">Requesting Entity</option>
+                        <option value="buyer">Buyer</option>
+                        <option value="seller">Seller</option>
+                      </select>
+                    </label>
+                    <label>Type
+                      <select name="kind">
+                        <option value="message">Message</option>
+                        <option value="delivery">Delivery update</option>
+                        <option value="dispute">Dispute note</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button class="btn" type="submit">Send</button>
+                </form>
+              </section>
+              <section class="deal-room-pane" data-deal-room-pane="timeline" role="tabpanel">
+                <div class="deal-room-section">
+                  <h3>Timeline</h3>
+                  <div id="dealRoomTimeline" class="list deal-room-feed"></div>
+                </div>
+              </section>
+              <section class="deal-room-pane" data-deal-room-pane="actions" role="tabpanel">
+                <div class="deal-room-section">
+                  <h3>Actions</h3>
+                  <div id="dealRoomActions" class="order-workspace-actions"></div>
+                </div>
+              </section>
+            </div>
+            <div id="dealRoomStatus" class="status"></div>
+          </article>
+        </section>
+
+        <section class="section" data-section="approvals">
+          <article class="panel">
+            <h2>Approvals</h2>
+            <form id="approvalForm">
+              <div class="form-grid">
+                <label>Service requested <input name="dealTitle" placeholder="Automation quote" required /></label>
+                <label>Decision
+                  <select name="decision">
+                    <option value="approved">Approve</option>
+                    <option value="rejected">Reject</option>
+                  </select>
+                </label>
+                <label>Rejection category
+                  <select name="reasonCategory">
+                    <option value="">Required when rejecting</option>
+                    <option value="price_too_high">Price too high</option>
+                    <option value="cannot_meet_deadline">Cannot meet deadline</option>
+                    <option value="service_not_available">Service not available</option>
+                    <option value="found_better_option_elsewhere">Found better option elsewhere</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+              </div>
+              <label>Reason or note <textarea name="reason"></textarea></label>
+              <button class="btn" type="submit">Save</button>
+            </form>
+            <div id="approvalStatus" class="status"></div>
+            <div id="approvalsList" class="list"></div>
+          </article>
+        </section>
+
+        <section class="section" data-section="analytics">
+          <div class="grid cards">
+            <article class="metric"><span>Pending approvals</span><strong id="analyticsPending">0</strong></article>
+            <article class="metric"><span>Approved value</span><strong id="analyticsValue">0</strong></article>
+            <article class="metric"><span>Completion rate</span><strong id="analyticsCompletion">0%</strong></article>
+            <article class="metric"><span>Top capability</span><strong id="analyticsCapability">-</strong></article>
+          </div>
+        </section>
+
+        <section class="section" data-section="api">
+          <article class="panel">
+            <h2>API</h2>
+            <form id="apiForm">
+              <div class="form-grid">
+                <label>Execution mode
+                  <select name="executionPreference">
+                    <option value="manual">Manual execution</option>
+                    <option value="optional-api">Optional API after approval</option>
+                  </select>
+                </label>
+                <label>Protocol
+                  <select name="protocol">
+                    <option value="rest">REST</option>
+                    <option value="mcp">MCP-ready</option>
+                    <option value="a2a">A2A-ready</option>
+                  </select>
+                </label>
+                <label>Endpoint URL <input name="endpoint" placeholder="https://api.business.com/agent" /></label>
+                <label>Auth type
+                  <select name="authType">
+                    <option value="apiKey">API key</option>
+                    <option value="oauth2">Secure login</option>
+                    <option value="none">None</option>
+                  </select>
+                </label>
+              </div>
+              <button class="btn" type="submit">Save</button>
+            </form>
+            <div id="apiStatus" class="status"></div>
+          </article>
+        </section>
+
+        <section class="section" data-section="billing">
+          <div class="upgrade-grid">
+            <article class="panel"><h2>Free</h2><span class="badge">Current</span></article>
+            <article class="panel"><h2>Basic</h2><span class="badge">Soon</span></article>
+            <article class="panel"><h2>Enterprise</h2><span class="badge">Soon</span></article>
+          </div>
+        </section>
+
+        <section class="section" data-section="settings">
+          <div class="workspace-grid">
+            <article class="panel">
+              <h2>Appearance</h2>
+              <form id="appearanceForm">
+                <label>Theme
+                  <select name="theme">
+                    <option value="system">System</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
+                </label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="appearanceStatus" class="status"></div>
+            </article>
+
+            <article class="panel">
+              <h2>Account</h2>
+              <form id="settingsForm">
+                <div class="form-grid">
+                  <label>Business display name <input name="businessName" /></label>
+                  <label>Login email <input name="loginEmail" type="email" readonly /></label>
+                  <label>Plan <input name="plan" readonly /></label>
+                  <label>Account status <input name="accountStatus" readonly /></label>
+                  <label>Approval email <input name="approvalEmail" type="email" /></label>
+                  <label>Team email <input name="teamEmail" type="email" /></label>
+                </div>
+                <button class="btn" type="submit">Save</button>
+                <button class="btn secondary" id="passwordResetBtn" type="button">Reset password</button>
+              </form>
+              <div id="settingsStatus" class="status"></div>
+            </article>
+
+            <article class="panel">
+              <h2>Notifications</h2>
+              <form id="notificationsForm">
+                <label>Primary channel
+                  <select name="notificationChannel">
+                    <option value="email">Email</option>
+                    <option value="whatsapp">WhatsApp later</option>
+                    <option value="sms">SMS later</option>
+                  </select>
+                </label>
+                <label><input name="dealRequests" type="checkbox" value="true" /> Agent requests</label>
+                <label><input name="humanApprovals" type="checkbox" value="true" /> Approvals</label>
+                <label><input name="weeklySummary" type="checkbox" value="true" /> Weekly summary</label>
+                <button class="btn" type="submit">Save</button>
+              </form>
+              <div id="notificationsStatus" class="status"></div>
+            </article>
+
+            <article class="panel">
+              <h2>Version</h2>
+              <div class="list">
+                <article class="item"><strong id="appVersion">0.1.0</strong><p>June 2026</p></article>
+              </div>
+            </article>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="rejectionReasonModal" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rejectionModalTitle" aria-describedby="rejectionModalDescription">
+        <form id="rejectionReasonForm">
+          <div>
+            <h2 id="rejectionModalTitle">Reject request</h2>
+            <p class="small" id="rejectionModalDescription"></p>
+          </div>
+          <label>Rejection category
+            <select name="reasonCategory">
+              <option value="">Choose a reason</option>
+              <option value="price_too_high">Price too high</option>
+              <option value="cannot_meet_deadline">Cannot meet deadline</option>
+              <option value="service_not_available">Service not available</option>
+              <option value="found_better_option_elsewhere">Found better option elsewhere</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Note
+            <textarea name="reason" placeholder="Short note"></textarea>
+          </label>
+          <div id="rejectionModalStatus" class="status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button class="btn secondary" id="cancelRejectionReasonBtn" type="button">Cancel</button>
+            <button class="btn" type="submit">Reject</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script type="module">
+      import {
+        createAgentRun,
+        createAuditEvent,
+        createOrder,
+        createOrderMessage,
+        createOwnerDealRequest,
+        createOwnerRecord,
+        getOwnerData,
+        listOrderMessages,
+        listOwnerCollection,
+        requireUser,
+        resetPassword,
+        saveApprovalDecision,
+        saveOwnerProfile,
+        signOutUser,
+        updateOwnerAccount,
+        updateOwnerCollectionDoc
+      } from "./firebase-client.js";
+      import {
+        AGENT_RUN_TYPE,
+        DEAL_STATUS,
+        PROFILE_STATUS,
+        REGISTRY_STATUS,
+        TRUST_SCORE_EVENT,
+        applyOrderConfirmation,
+        applyTrustScoreChange,
+        appendDealRoomTimeline,
+        buildDealRoomMessage,
+        buildNegotiationDraft,
+        buildOwnerAgentChatResponse,
+        createDealRoom,
+        createAuditEvent as buildAuditEvent,
+        DEAL_ROOM_MESSAGE_KIND,
+        dealStatusText,
+        evaluateDealRequest,
+        evaluateBypassSuspicion,
+        normalizeRejectionReason,
+        openOrderDispute,
+        summarizeDealRoom,
+        transitionPublishingStatus,
+        updateDealRoomAfterMessage
+      } from "./system-logic.js";
+      import { mobileSectionIds, routeIndex, sections } from "./js/dashboard/navigation.js";
+
+      const mobileQuery = window.matchMedia("(max-width: 980px)");
+
+      let user;
+      let account = {};
+      let profile = {};
+      let inbox = [];
+      let sent = [];
+      let orders = [];
+      let approvals = [];
+      let agentRuns = [];
+      let auditEvents = [];
+      let currentNegotiationDraft = null;
+      let activeDealRoomOrderId = "";
+      let activeDealRoomTab = "details";
+      let activeDealRoomMessages = [];
+      let activeRejectionModalResolve = null;
+      let lastRejectionModalFocus = null;
+
+      boot();
+
+      async function boot() {
+        user = await requireUser();
+        renderNav();
+        bindEvents();
+        bindSystemTheme();
+        await reloadAll();
+        showSection("overview");
+      }
+
+      function renderNav() {
+        const sideNav = document.querySelector("#sideNav");
+        const mobileNav = document.querySelector("#mobileNav");
+        const desktopHtml = sections
+          .map(([id, label]) => `<button class="nav-btn ${id === "agent" ? "agent-nav" : ""}" data-target="${id}" type="button">${label}</button>`)
+          .join("");
+        const mobileHtml = sections
+          .filter(([id]) => mobileSectionIds.has(id))
+          .map(([id, label]) => `<button class="nav-btn" data-target="${id}" type="button">${label}</button>`)
+          .join("");
+        sideNav.innerHTML = desktopHtml;
+        mobileNav.innerHTML = mobileHtml;
+        document.querySelectorAll("[data-target]").forEach((button) => {
+          button.addEventListener("click", () => showSection(button.dataset.target));
+        });
+        mobileQuery.addEventListener("change", () => {
+          const active = document.querySelector(".section.active")?.dataset.section;
+          if (mobileQuery.matches && active && !mobileSectionIds.has(active)) showSection("overview");
+        });
+      }
+
+      function bindEvents() {
+        document.querySelector("#signOutBtn").addEventListener("click", async () => {
+          await signOutUser();
+          window.location.href = "/login.html";
+        });
+        document.querySelector("#profileForm").addEventListener("submit", saveProfileForm);
+        document.querySelector("#sentForm").addEventListener("submit", saveSentRequest);
+        document.querySelector("#approvalForm").addEventListener("submit", saveApprovalForm);
+        document.querySelector("#dealRoomMessageForm").addEventListener("submit", sendDealRoomMessage);
+        document.querySelector("#dealRoomOrderSelect").addEventListener("change", (event) => {
+          if (event.target.value) openDealRoom(event.target.value);
+        });
+        document.querySelectorAll("[data-deal-room-tab]").forEach((button) => {
+          button.addEventListener("click", () => {
+            activeDealRoomTab = button.dataset.dealRoomTab;
+            updateDealRoomTabs();
+          });
+        });
+        document.querySelector("#apiForm").addEventListener("submit", saveApiForm);
+        document.querySelector("#settingsForm").addEventListener("submit", saveSettingsForm);
+        document.querySelector("#appearanceForm").addEventListener("submit", saveAppearanceForm);
+        document.querySelector("#appearanceForm").elements.namedItem("theme").addEventListener("change", previewTheme);
+        document.querySelector("#notificationsForm").addEventListener("submit", saveNotificationsForm);
+        document.querySelector("#passwordResetBtn").addEventListener("click", sendDashboardPasswordReset);
+        document.querySelector("#sampleInboxBtn").addEventListener("click", addSampleInbox);
+        const rejectionForm = document.querySelector("#rejectionReasonForm");
+        rejectionForm.addEventListener("submit", submitRejectionReasonModal);
+        rejectionForm.elements.namedItem("reasonCategory").addEventListener("change", clearRejectionReasonModalError);
+        rejectionForm.elements.namedItem("reason").addEventListener("input", clearRejectionReasonModalError);
+        document.querySelector("#cancelRejectionReasonBtn").addEventListener("click", () => closeRejectionReasonModal(null));
+        document.querySelector("#rejectionReasonModal").addEventListener("click", (event) => {
+          if (event.target.id === "rejectionReasonModal") closeRejectionReasonModal(null);
+        });
+        document.addEventListener("keydown", handleRejectionModalKeydown);
+        document.querySelectorAll("[data-route]").forEach((button) => {
+          button.addEventListener("click", () => navigateToRoute(button.dataset.route, button.dataset.focus || ""));
+        });
+        document.querySelectorAll("[data-agent-menu-return]").forEach((button) => {
+          button.addEventListener("click", () => navigateToRoute("agent", "agentChoices"));
+        });
+        document.querySelector("#dashboardSearch").addEventListener("input", handleDashboardSearch);
+        document.querySelector("#dashboardSearch").addEventListener("keydown", handleSearchKeydown);
+        document.querySelector("#dashboardSearchResults").addEventListener("click", handleSearchResultClick);
+        document.querySelector("#agentInstructionsForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "instructions", "#agentInstructionsStatus"));
+        document.querySelector("#agentCapabilityForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "capability", "#agentCapabilityStatus"));
+        document.querySelector("#agentNegotiationForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "negotiationRules", "#agentNegotiationStatus"));
+        document.querySelector("#agentEscalationForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "escalationRules", "#agentEscalationStatus"));
+        document.querySelector("#agentToolsForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "execution", "#agentToolsStatus"));
+        document.querySelector("#agentMemoryForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "memory", "#agentMemoryStatus"));
+        document.querySelector("#agentTestForm").addEventListener("submit", runAgentTest);
+        document.querySelector("#agentChatForm").addEventListener("submit", sendOwnerAgentChat);
+        document.querySelector("#agentNegotiationTaskForm").addEventListener("submit", runHumanNegotiation);
+        document.querySelector("#autofillApprovalBtn").addEventListener("click", autofillApprovalFromDraft);
+        document.querySelector("#saveNegotiationInboxBtn").addEventListener("click", saveNegotiationAsInbox);
+        document.querySelector("#clearNegotiationBtn").addEventListener("click", clearNegotiationDraft);
+        document.querySelector("#submitReviewBtn").addEventListener("click", submitForPublishingReview);
+        document.querySelector("#pausePublishBtn").addEventListener("click", () => updatePublishingStatus(REGISTRY_STATUS.PAUSED));
+        document.querySelector("#resumePublishBtn").addEventListener("click", () => updatePublishingStatus(REGISTRY_STATUS.PENDING_REVIEW));
+        document.querySelector("#previewListingBtn").addEventListener("click", previewPublicListing);
+      }
+
+      function bindSystemTheme() {
+        window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+          const selected = document.querySelector("#appearanceForm")?.elements.namedItem("theme")?.value || localStorage.getItem("dnols.theme") || "dark";
+          if (selected === "system") applyTheme("system");
+        });
+      }
+
+      function previewTheme(event) {
+        const theme = event.target.value || "dark";
+        applyTheme(theme);
+        localStorage.setItem("dnols.theme", theme);
+      }
+
+      function handleDashboardSearch(event) {
+        const query = event.target.value.trim().toLowerCase();
+        const results = document.querySelector("#dashboardSearchResults");
+        if (!query) {
+          results.hidden = true;
+          results.innerHTML = "";
+          return;
+        }
+        const matches = routeIndex
+          .filter((item) => `${item.label} ${item.keywords}`.toLowerCase().includes(query))
+          .slice(0, 7);
+        results.hidden = false;
+        results.innerHTML = matches.length
+          ? matches.map((item) => searchResultHtml(item)).join("")
+          : `<div class="search-result"><strong>No match</strong></div>`;
+      }
+
+      function searchResultHtml(item) {
+        const desktopOnly = mobileQuery.matches && !item.mobile;
+        const routeLabel = sections.find(([id]) => id === item.section)?.[1] || item.section;
+        return `<button class="search-result" data-search-section="${item.section}" data-search-focus="${item.focus}" data-desktop-only="${desktopOnly}" type="button"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(desktopOnly ? "Desktop only" : routeLabel)}</span></button>`;
+      }
+
+      function handleSearchKeydown(event) {
+        if (event.key !== "Enter") return;
+        const firstResult = document.querySelector("#dashboardSearchResults .search-result[data-search-section]");
+        if (firstResult) {
+          event.preventDefault();
+          firstResult.click();
+        }
+      }
+
+      function handleSearchResultClick(event) {
+        const button = event.target.closest("[data-search-section]");
+        if (!button) return;
+        if (button.dataset.desktopOnly === "true") {
+          showDesktopOnlySearchMessage();
+          return;
+        }
+        navigateToRoute(button.dataset.searchSection, button.dataset.searchFocus || "");
+        document.querySelector("#dashboardSearch").value = "";
+        document.querySelector("#dashboardSearchResults").hidden = true;
+      }
+
+      function navigateToRoute(sectionId, focusId = "") {
+        if (mobileQuery.matches && !mobileSectionIds.has(sectionId)) {
+          showDesktopOnlySearchMessage();
+          return;
+        }
+        showSection(sectionId);
+        if (sectionId === "agent") setAgentSpaceView(focusId || "agentChoices");
+        if (focusId) focusDashboardPiece(focusId);
+      }
+
+      function setAgentSpaceView(focusId = "agentChoices") {
+        const agentSection = document.querySelector('[data-section="agent"]');
+        if (!agentSection) return;
+        const viewId = focusId && focusId !== "agentChoices" ? focusId : "menu";
+        agentSection.dataset.agentView = viewId;
+      }
+
+      function showDesktopOnlySearchMessage() {
+        const results = document.querySelector("#dashboardSearchResults");
+        results.hidden = false;
+        results.innerHTML = `<div class="search-result"><strong>Desktop only</strong></div>`;
+      }
+
+      function focusDashboardPiece(focusId) {
+        requestAnimationFrame(() => {
+          const target = document.getElementById(focusId);
+          if (!target) return;
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          target.classList.add("focus-pulse");
+          setTimeout(() => target.classList.remove("focus-pulse"), 1400);
+        });
+      }
+
+      async function reloadAll() {
+        const ownerData = await getOwnerData(user.uid);
+        account = ownerData.account ?? {};
+        profile = ownerData.profile ?? {};
+        [inbox, sent, orders, approvals, agentRuns, auditEvents] = await Promise.all([
+          listOwnerCollection(user.uid, "inbox"),
+          listOwnerCollection(user.uid, "sentRequests"),
+          listOwnerCollection(user.uid, "orders"),
+          listOwnerCollection(user.uid, "approvals"),
+          listOwnerCollection(user.uid, "agentRuns"),
+          listOwnerCollection(user.uid, "auditEvents")
+        ]);
+        await syncLifecycleSignals();
+        ensureActiveDealRoomSelection();
+        if (activeDealRoomOrderId) {
+          activeDealRoomMessages = await listOrderMessages(user.uid, activeDealRoomOrderId);
+        } else {
+          activeDealRoomMessages = [];
+        }
+        hydrateForms();
+        renderAll();
+      }
+
+      function hydrateForms() {
+        setValues("#profileForm", {
+          businessName: profile.businessName || account.businessName || "",
+          domain: profile.domain || "",
+          category: profile.category || "",
+          country: profile.country || "",
+          region: profile.region || "",
+          language: profile.language || "English",
+          summary: profile.summary || "",
+          capabilityName: profile.capabilityName || "",
+          tags: profile.tags || "",
+          capabilityDescription: profile.capabilityDescription || "",
+          maxDealValue: profile.maxDealValue || "",
+          approvalRequiredAbove: profile.approvalRequiredAbove || "",
+          currency: profile.currency || "USD",
+          approvalEmail: profile.approvalEmail || user.email || ""
+        });
+        setValues("#apiForm", {
+          executionPreference: profile.executionPreference || "manual",
+          protocol: profile.protocol || "rest",
+          endpoint: profile.endpoint || "",
+          authType: profile.authType || "apiKey"
+        });
+        setValues("#settingsForm", {
+          businessName: account.businessName || profile.businessName || "",
+          loginEmail: user.email || "",
+          plan: displayLabel(account.plan || "free"),
+          accountStatus: displayLabel(account.status || "pending_review"),
+          approvalEmail: profile.approvalEmail || user.email || "",
+          teamEmail: account.teamEmail || ""
+        });
+        const selectedTheme = localStorage.getItem("dnols.theme") || account.preferences?.theme || "dark";
+        setValues("#appearanceForm", {
+          theme: selectedTheme
+        });
+        setValues("#notificationsForm", {
+          notificationChannel: account.notificationPreferences?.channel || account.notificationChannel || "email"
+        });
+        setCheckboxes("#notificationsForm", {
+          dealRequests: account.notificationPreferences?.dealRequests ?? true,
+          humanApprovals: account.notificationPreferences?.humanApprovals ?? true,
+          weeklySummary: account.notificationPreferences?.weeklySummary ?? false
+        }, ["dealRequests", "humanApprovals", "weeklySummary"]);
+        applyTheme(selectedTheme);
+        hydrateAgentWorkspace();
+      }
+
+      function hydrateAgentWorkspace() {
+        const config = profile.agentConfig || {};
+        setValues("#agentInstructionsForm", {
+          role: config.instructions?.role || `You represent ${profile.businessName || account.businessName || "this business"} and respond to B2B deal requests.`,
+          tone: config.instructions?.tone || "professional",
+          language: config.instructions?.language || profile.language || "English",
+          alwaysSay: config.instructions?.alwaysSay || "Final execution requires owner approval.",
+          neverSay: config.instructions?.neverSay || "Never reveal private prices or internal limits.",
+          privateRules: config.instructions?.privateRules || ""
+        });
+        setValues("#agentCapabilityForm", {
+          name: config.capability?.name || profile.capabilityName || "",
+          tags: config.capability?.tags || profile.tags || "",
+          description: config.capability?.description || profile.capabilityDescription || "",
+          inputNeeded: config.capability?.inputNeeded || "Budget, timeline, location, and requirements.",
+          outputProvided: config.capability?.outputProvided || "Quote, timeline, and approval-ready deal summary.",
+          turnaround: config.capability?.turnaround || "",
+          priceModel: config.capability?.priceModel || "Quote first",
+          requiresConfirmation: String(config.capability?.requiresConfirmation ?? true)
+        });
+        setValues("#agentNegotiationForm", {
+          minimumPrice: config.negotiationRules?.minimumPrice || "",
+          quoteRange: config.negotiationRules?.quoteRange || "",
+          maxDiscount: config.negotiationRules?.maxDiscount || "",
+          maxDealValue: config.negotiationRules?.maxDealValue || profile.maxDealValue || "",
+          approvalRequiredAbove: config.negotiationRules?.approvalRequiredAbove || profile.approvalRequiredAbove || "",
+          currencies: config.negotiationRules?.currencies || profile.currency || "USD",
+          paymentTerms: config.negotiationRules?.paymentTerms || "",
+          deadlineFlexibility: config.negotiationRules?.deadlineFlexibility || "",
+          preferredCustomers: config.negotiationRules?.preferredCustomers || "",
+          blocked: config.negotiationRules?.blocked || ""
+        });
+        setValues("#agentEscalationForm", {
+          approvalEmail: config.escalationRules?.approvalEmail || profile.approvalEmail || user.email || "",
+          approvalPhone: config.escalationRules?.approvalPhone || "",
+          timeout: config.escalationRules?.timeout || "24 hours",
+          confidenceThreshold: config.escalationRules?.confidenceThreshold || "70"
+        });
+        setCheckboxes("#agentEscalationForm", config.escalationRules || {}, ["customTerms", "outsideRegion", "priceAboveThreshold"]);
+        setValues("#agentToolsForm", {
+          executionMode: config.execution?.executionMode || profile.executionPreference || "manual",
+          endpoint: config.execution?.endpoint || profile.endpoint || "",
+          authType: config.execution?.authType || profile.authType || "apiKey",
+          headers: config.execution?.headers || ""
+        });
+        setCheckboxes("#agentToolsForm", config.execution || {}, ["requiresIdempotencyKey", "requiresConfirmation"]);
+        setValues("#agentMemoryForm", {
+          services: config.memory?.services || "",
+          serviceAreas: config.memory?.serviceAreas || profile.region || "",
+          operatingHours: config.memory?.operatingHours || "",
+          faqs: config.memory?.faqs || "",
+          policies: config.memory?.policies || "",
+          requiredBuyerInfo: config.memory?.requiredBuyerInfo || "",
+          preferredPartners: config.memory?.preferredPartners || "",
+          blacklist: config.memory?.blacklist || ""
+        });
+      }
+
+      function renderAll() {
+        const businessName = profile.businessName || account.businessName || "Your Business";
+        document.querySelector("#sidebarBusiness").textContent = businessName;
+        document.querySelector("#sidebarEmail").textContent = user.email;
+        document.querySelector("#profileStatus").textContent = `${readinessScore()}%`;
+        document.querySelector("#metricReadiness").textContent = readinessScore();
+        document.querySelector("#metricInbox").textContent = inbox.length;
+        document.querySelector("#metricSent").textContent = sent.length;
+        document.querySelector("#metricOrders").textContent = orders.length;
+        const agentConfig = profile.agentConfig || {};
+        const latestRun = agentRuns[0];
+        document.querySelector("#metricAgentStatus").textContent = displayLabel(agentConfig.status || profile.status || "draft");
+        document.querySelector("#agentStatusMetric").textContent = displayLabel(agentConfig.status || profile.status || "draft");
+        document.querySelector("#agentApprovalMetric").textContent = approvalMode(agentConfig);
+        document.querySelector("#agentExecutionMetric").textContent = displayLabel(agentConfig.execution?.executionMode || profile.executionPreference || "manual");
+        document.querySelector("#agentLastTestMetric").textContent = latestRun ? displayLabel(latestRun.status || "saved") : "None";
+        document.querySelector("#overviewRules").innerHTML = [
+          itemHtml("Approval threshold", `${profile.currency || "USD"} ${profile.approvalRequiredAbove || 0}`),
+          itemHtml("Max request value", `${profile.currency || "USD"} ${profile.maxDealValue || 0}`),
+          itemHtml("Execution", displayLabel(agentConfig.execution?.executionMode || profile.executionPreference || "manual")),
+          itemHtml("Tone", displayLabel(agentConfig.instructions?.tone || "professional"))
+        ].join("");
+        document.querySelector("#overviewAgentRun").innerHTML = latestRun
+          ? itemHtml(latestRun.title || "Latest test", latestRun.draftResponse || latestRun.result?.draftResponse || displayLabel(latestRun.status) || "Saved")
+          : emptyHtml("No tests.");
+        document.querySelector("#recentActivity").innerHTML =
+          [...auditEvents, ...agentRuns, ...sent, ...approvals, ...orders].slice(0, 5).map((item) => itemHtml(displayLabel(item.title || item.targetName || item.dealTitle || "Update"), displayLabel(item.status || item.decision || item.type || "saved"))).join("") ||
+          emptyHtml("No updates.");
+        renderList("#inboxList", inbox, "Empty.");
+        renderList("#sentList", sent, "Empty.");
+        renderList("#approvalsList", approvals, "Empty.");
+        ensureActiveDealRoomSelection();
+        renderOrderSelector();
+        renderDealRoom();
+        renderAgentChat();
+        renderAgentRuns();
+        renderPublishingPanel();
+        renderAnalytics();
+        const activeSection = document.querySelector(".section.active")?.dataset.section;
+        if (activeSection === "overview") showSection("overview");
+      }
+
+      function renderPublishingPanel() {
+        const gaps = publicListingGaps(profile);
+        const registryStatus = profile.registryStatus || REGISTRY_STATUS.NOT_PUBLISHED;
+        document.querySelector("#publishRegistryStatus").textContent = displayLabel(registryStatus);
+        document.querySelector("#publishPreviewState").textContent = gaps.length ? "Needs info" : "Ready";
+        document.querySelector("#publishChecklist").innerHTML = gaps.length
+          ? gaps.map((gap) => itemHtml("Missing", gap)).join("")
+          : itemHtml("Ready", "Complete.");
+        document.querySelector("#submitReviewBtn").disabled = gaps.length > 0;
+        document.querySelector("#pausePublishBtn").disabled = registryStatus === REGISTRY_STATUS.NOT_PUBLISHED || registryStatus === REGISTRY_STATUS.PAUSED;
+        document.querySelector("#resumePublishBtn").disabled = registryStatus !== REGISTRY_STATUS.PAUSED;
+      }
+
+      function renderAgentRuns() {
+        document.querySelector("#agentRunsList").innerHTML =
+          [...agentRuns, ...auditEvents].slice(0, 8).map((run) => {
+            const title = displayLabel(run.title || run.type || "Agent run");
+            const description = run.draftResponse || run.result?.draftResponse || run.details?.summary || "";
+            const status = run.approvalRequired || run.result?.approvalRequired ? "Needs approval" : displayLabel(run.status || run.type || "saved");
+            return `<article class="item"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(status)}</span>${description ? `<p>${escapeHtml(description)}</p>` : ""}</article>`;
+          }).join("") || emptyHtml("No runs.");
+      }
+
+      function renderAgentChat() {
+        const chatRuns = agentRuns
+          .filter((run) => run.type === AGENT_RUN_TYPE.OWNER_AGENT_CHAT)
+          .slice(0, 8)
+          .reverse();
+        const thread = document.querySelector("#agentChatThread");
+        thread.innerHTML = chatRuns.length
+          ? chatRuns.map((run) => renderAgentChatRun(run)).join("")
+          : `
+            <div class="chat-bubble agent">
+              <span>Agent</span>
+              <p>Ask anything.</p>
+            </div>
+          `;
+        thread.scrollTop = thread.scrollHeight;
+      }
+
+      function renderAgentChatRun(run) {
+        const messages = run.messages?.length
+          ? run.messages
+          : [
+              { role: "owner", body: run.ownerMessage || run.request || "" },
+              { role: "agent", body: run.agentResponse || run.draftResponse || "", nextActions: run.nextActions || [] }
+            ];
+        return messages
+          .filter((message) => message.body)
+          .map((message) => {
+            const role = message.role === "owner" ? "owner" : "agent";
+            const label = role === "owner" ? "You" : "Agent";
+            const actions = role === "agent" && message.nextActions?.length
+              ? `<ul class="chat-actions">${message.nextActions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>`
+              : "";
+            return `
+              <div class="chat-bubble ${role}">
+                <span>${label}</span>
+                <p>${escapeHtml(message.body)}</p>
+                ${actions}
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderList(selector, items, emptyMessage) {
+        document.querySelector(selector).innerHTML =
+          items.map((item) => {
+            const title = displayLabel(item.title || item.targetName || item.dealTitle || item.capabilityId || "Deal");
+            const description = item.requirements || item.reason || item.rejectionReason?.note || "";
+            const status = displayLabel(item.status || item.decision || "new");
+            const details = renderDecisionDetails(item);
+            const actionableInboxStatuses = [
+              DEAL_STATUS.NEW,
+              DEAL_STATUS.NEGOTIATING,
+              DEAL_STATUS.AGENT_REVIEWED,
+              DEAL_STATUS.PENDING_HUMAN_APPROVAL
+            ];
+            const actions =
+              selector === "#inboxList" && actionableInboxStatuses.includes(item.status || DEAL_STATUS.NEW)
+                ? `<div class="item-actions"><button class="btn secondary" data-approve-inbox="${item.id}" type="button">Approve</button><button class="btn secondary" data-reject-inbox="${item.id}" type="button">Reject</button></div>`
+                : "";
+            return `<article class="item"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(status)}</span>${description ? `<p>${escapeHtml(description)}</p>` : ""}${details}${actions}</article>`;
+          }).join("") || emptyHtml(emptyMessage);
+        document.querySelectorAll("[data-approve-inbox]").forEach((button) => button.addEventListener("click", () => decideInbox(button.dataset.approveInbox, "approved")));
+        document.querySelectorAll("[data-reject-inbox]").forEach((button) => button.addEventListener("click", () => decideInbox(button.dataset.rejectInbox, "rejected")));
+      }
+
+      function renderDecisionDetails(item) {
+        const details = [];
+        if (item.orderId) details.push(`Agent request ready: ${item.orderId}`);
+        if (item.approvedAtClient) details.push(`Approved: ${item.approvedAtClient}`);
+        if (item.rejectedAtClient) details.push(`Rejected: ${item.rejectedAtClient}`);
+        if (item.reasonCategory || item.rejectionReason?.category) details.push(`Reason: ${displayLabel(item.reasonCategory || item.rejectionReason.category)}`);
+        if (item.rejectionReason?.note && item.rejectionReason.note !== item.reason) details.push(`Note: ${item.rejectionReason.note}`);
+        if (item.decisionSavedAtClient) details.push(`Saved: ${item.decisionSavedAtClient}`);
+        return details.map((detail) => `<p>${escapeHtml(detail)}</p>`).join("");
+      }
+
+      function ensureActiveDealRoomSelection() {
+        if (!orders.length) {
+          activeDealRoomOrderId = "";
+          activeDealRoomMessages = [];
+          return;
+        }
+        if (!activeDealRoomOrderId || !orders.some((item) => item.id === activeDealRoomOrderId)) {
+          activeDealRoomOrderId = orders[0].id;
+        }
+      }
+
+      function renderOrderSelector() {
+        const select = document.querySelector("#dealRoomOrderSelect");
+        select.hidden = orders.length < 2;
+        select.innerHTML = orders.map((item) => {
+          const title = displayLabel(item.title || item.targetName || item.dealTitle || item.capabilityId || "Agent Request");
+          const status = displayLabel(dealStatusText(item));
+          const selected = item.id === activeDealRoomOrderId ? " selected" : "";
+          return `<option value="${escapeHtml(item.id)}"${selected}>${escapeHtml(`${title} · ${status || "Saved"}`)}</option>`;
+        }).join("");
+      }
+
+      function refreshOrderSelection() {
+        renderOrderSelector();
+      }
+
+      function nextLifecycleAction(item) {
+        const confirmations = item.confirmations || {};
+        const completeReady = confirmations.buyerPaid && confirmations.sellerReceived;
+        const completeOrBlocked = item.status === DEAL_STATUS.COMPLETE || item.status === DEAL_STATUS.COMPLETED || item.status === DEAL_STATUS.DISPUTED || item.status === DEAL_STATUS.BYPASSED;
+        if (completeOrBlocked) return null;
+        if (!confirmations.buyerPaid) return { attribute: "data-confirm-buyer-paid", label: "Confirm Next Step", secondaryLabel: "Buyer paid" };
+        if (!confirmations.sellerReceived) return { attribute: "data-confirm-seller-received", label: "Confirm Next Step", secondaryLabel: "Seller done" };
+        if (completeReady) return { attribute: "data-complete-order", label: "Complete Request", secondaryLabel: "Complete" };
+        return null;
+      }
+
+      function orderActionHtml(item) {
+        const confirmations = item.confirmations || {};
+        const completeReady = confirmations.buyerPaid && confirmations.sellerReceived;
+        const completeOrBlocked = item.status === DEAL_STATUS.COMPLETE || item.status === DEAL_STATUS.COMPLETED || item.status === DEAL_STATUS.DISPUTED || item.status === DEAL_STATUS.BYPASSED;
+        const disabledComplete = completeReady && !completeOrBlocked ? "" : " disabled";
+        const id = escapeHtml(item.id);
+        return `
+          <div class="order-actions">
+            <div class="order-action-group">
+              <span class="order-action-label">Action</span>
+              <button class="btn secondary" data-confirm-buyer-paid="${id}" type="button" ${confirmations.buyerPaid || completeOrBlocked ? "disabled" : ""}>Buyer paid</button>
+              <button class="btn secondary" data-confirm-seller-received="${id}" type="button" ${confirmations.sellerReceived || completeOrBlocked ? "disabled" : ""}>Seller done</button>
+            </div>
+            <div class="order-action-group">
+              <span class="order-action-label">Close</span>
+              <button class="btn secondary" data-dispute-order="${id}" type="button" ${completeOrBlocked ? "disabled" : ""}>Dispute</button>
+              <button class="btn secondary" data-complete-order="${id}" type="button"${disabledComplete}>Complete</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function primaryActionHtml(item) {
+        const nextAction = nextLifecycleAction(item);
+        const id = escapeHtml(item.id);
+        const actionButton = nextAction
+          ? `<button class="btn" ${nextAction.attribute}="${id}" type="button">${escapeHtml(nextAction.label)}</button>`
+          : "";
+        return `${actionButton}<button class="btn secondary" data-request-info="${id}" type="button">Request info</button>`;
+      }
+
+      function renderStatusStrip(items) {
+        return `<div class="deal-room-status-strip">${items.map(({ label, value }) => itemHtml(label, value)).join("")}</div>`;
+      }
+
+      function renderExecutionSummary(terms, order) {
+        const currency = terms.currency || order.currency || profile.currency || "USD";
+        const amount = terms.price || order.budgetAmount || order.amount || 0;
+        const service = terms.service || order.capability || order.capabilityId || order.reason || "Business service";
+        const deadline = terms.deadline || order.deadline || order.dueDate || "Not set";
+        return `<article class="item execution-summary"><strong>Summary of Execution</strong><p>${escapeHtml(`${service} · ${currency} ${amount} · ${deadline}`)}</p></article>`;
+      }
+
+      function requestingEntityTitle(order) {
+        return order.requesterAgent || order.requesterAgentName || order.requesterAgentId || order.agentRequester ? "Requesting Agent" : "Requesting Entity";
+      }
+
+      function actionRequiredText(order, summary) {
+        const status = String(order.status || summary.status || "");
+        if (status === DEAL_STATUS.COMPLETE || status === DEAL_STATUS.COMPLETED || summary.status === "complete") return "None";
+        if (status === DEAL_STATUS.DISPUTED || summary.status === "disputed") return "Manual review";
+        if (status === DEAL_STATUS.PENDING_HUMAN_APPROVAL || status === DEAL_STATUS.AGENT_REVIEWED) return "Needs approval";
+        return "Action required";
+      }
+
+      function agentCertainty(order) {
+        const candidates = [
+          order.agentEvaluation?.confidence,
+          order.agentEvaluation?.score,
+          order.evaluation?.confidence,
+          order.evaluation?.score,
+          order.negotiationDraft?.evaluation?.confidence,
+          order.negotiationDraft?.evaluation?.score
+        ];
+        const explicit = candidates.map(Number).find((value) => Number.isFinite(value) && value > 0);
+        if (explicit) return `${Math.max(0, Math.min(100, Math.round(explicit <= 1 ? explicit * 100 : explicit)))}%`;
+        if (order.evaluation || order.agentEvaluation || order.negotiationDraft?.evaluation) return "92%";
+        return order.title && (order.budgetAmount || order.amount) && (order.deadline || order.dueDate) ? "85%" : "80%";
+      }
+
+      function timelineTitle(event) {
+        const label = String(event.label || "").toLowerCase();
+        const kind = String(event.kind || "");
+        if (kind === DEAL_ROOM_MESSAGE_KIND.DISPUTE || label.includes("dispute")) return "Issue flagged for review";
+        if (kind === DEAL_ROOM_MESSAGE_KIND.APPROVAL || label.includes("approval")) return "Waiting for approval";
+        if (kind === DEAL_ROOM_MESSAGE_KIND.AGENT_TERM || label.includes("term") || label.includes("negotiated")) return "Agent reviewed terms";
+        if (kind === DEAL_ROOM_MESSAGE_KIND.DELIVERY && /complete|received|delivered/i.test(`${event.label || ""} ${event.detail || ""}`)) return "Service update recorded";
+        if (label.includes("message")) return "Agent message recorded";
+        return "Proposal prepared";
+      }
+
+      function timelineDetail(event) {
+        const detail = String(event.detail || "").trim();
+        const createdAt = String(event.createdAtClient || "").trim();
+        return [detail, createdAt].filter(Boolean).join(" · ");
+      }
+
+      function orderLifecycleTitle(eventType) {
+        return {
+          payment_sent: "Payment step confirmed",
+          delivered: "Service update confirmed",
+          complete: "Agent request completed"
+        }[eventType] || "Request lifecycle updated";
+      }
+
+      async function openDealRoom(id) {
+        activeDealRoomOrderId = id;
+        const order = orders.find((item) => item.id === id);
+        if (!order) return;
+        activeDealRoomMessages = await listOrderMessages(user.uid, id);
+        if (!order.dealRoom) {
+          const room = createDealRoom(order, {
+            partnerName: order.partnerName || order.targetName || order.requesterName || "Requesting entity",
+            currency: order.currency || profile.currency || "USD"
+          });
+          await updateOwnerCollectionDoc(user.uid, "orders", id, { dealRoom: room });
+          order.dealRoom = room;
+        }
+        renderDealRoom();
+        refreshOrderSelection();
+        showSection("orders");
+        document.querySelector("#dealRoomPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function renderDealRoom() {
+        const order = orders.find((item) => item.id === activeDealRoomOrderId);
+        const titleElement = document.querySelector("#dealRoomTitle");
+        const subtitleElement = document.querySelector("#dealRoomSubtitle");
+        const primaryActionsElement = document.querySelector("#dealRoomPrimaryActions");
+        const summaryElement = document.querySelector("#dealRoomSummary");
+        const timelineElement = document.querySelector("#dealRoomTimeline");
+        const messagesElement = document.querySelector("#dealRoomMessages");
+        const actionsElement = document.querySelector("#dealRoomActions");
+        const form = document.querySelector("#dealRoomMessageForm");
+        if (!order) {
+          titleElement.textContent = "Agent Request";
+          subtitleElement.textContent = "";
+          primaryActionsElement.hidden = true;
+          primaryActionsElement.innerHTML = "";
+          summaryElement.innerHTML = emptyHtml("Empty.");
+          timelineElement.innerHTML = emptyHtml("Empty.");
+          messagesElement.innerHTML = emptyHtml("Empty.");
+          actionsElement.innerHTML = emptyHtml("Empty.");
+          form.querySelector("button").disabled = true;
+          updateDealRoomTabs();
+          return;
+        }
+        const room = order.dealRoom || createDealRoom(order, { currency: order.currency || profile.currency || "USD" });
+        const summary = summarizeDealRoom(room, activeDealRoomMessages);
+        form.querySelector("button").disabled = false;
+        titleElement.textContent = displayLabel(order.title || summary.agreedTerms.title || "Selected Agent Request");
+        subtitleElement.textContent = `${displayLabel(summary.partnerName)} · ${actionRequiredText(order, summary)}`;
+        primaryActionsElement.hidden = false;
+        primaryActionsElement.innerHTML = primaryActionHtml(order);
+        summaryElement.innerHTML = [
+          renderStatusStrip([
+            { label: "Service Requested", value: summary.agreedTerms.service || order.title || order.capabilityId || "Business service" },
+            { label: requestingEntityTitle(order), value: summary.partnerName },
+            { label: "Action Required", value: actionRequiredText(order, summary) },
+            { label: "Agent Confidence", value: agentCertainty(order) }
+          ]),
+          renderExecutionSummary(summary.agreedTerms, order),
+          itemHtml("Status", displayLabel(dealStatusText(order)))
+        ].join("");
+        timelineElement.innerHTML = (room.timeline || []).map((event) => itemHtml(timelineTitle(event), timelineDetail(event))).join("") || emptyHtml("Empty.");
+        messagesElement.innerHTML = activeDealRoomMessages.map(renderDealRoomMessage).join("") || emptyHtml("Empty.");
+        actionsElement.innerHTML = orderActionHtml(order);
+        bindOrderActionButtons();
+        updateDealRoomTabs();
+      }
+
+      function updateDealRoomTabs() {
+        const hasOrder = Boolean(activeDealRoomOrderId && orders.some((item) => item.id === activeDealRoomOrderId));
+        if (!hasOrder) activeDealRoomTab = "details";
+        document.querySelectorAll("[data-deal-room-tab]").forEach((button) => {
+          const active = button.dataset.dealRoomTab === activeDealRoomTab;
+          button.classList.toggle("active", active);
+          button.disabled = !hasOrder;
+          button.setAttribute("aria-selected", String(active));
+        });
+        document.querySelectorAll("[data-deal-room-pane]").forEach((pane) => {
+          pane.classList.toggle("active", pane.dataset.dealRoomPane === activeDealRoomTab);
+        });
+      }
+
+      function bindOrderActionButtons() {
+        document.querySelectorAll("#dealRoomActions [data-confirm-buyer-paid], #dealRoomPrimaryActions [data-confirm-buyer-paid]").forEach((button) => button.addEventListener("click", () => confirmOrder(button.dataset.confirmBuyerPaid, "buyer_paid")));
+        document.querySelectorAll("#dealRoomActions [data-confirm-seller-received], #dealRoomPrimaryActions [data-confirm-seller-received]").forEach((button) => button.addEventListener("click", () => confirmOrder(button.dataset.confirmSellerReceived, "seller_received")));
+        document.querySelectorAll("#dealRoomActions [data-dispute-order]").forEach((button) => button.addEventListener("click", () => disputeOrder(button.dataset.disputeOrder)));
+        document.querySelectorAll("#dealRoomActions [data-complete-order], #dealRoomPrimaryActions [data-complete-order]").forEach((button) => button.addEventListener("click", () => completeOrder(button.dataset.completeOrder)));
+        document.querySelectorAll("#dealRoomPrimaryActions [data-request-info]").forEach((button) => button.addEventListener("click", () => requestInfo(button.dataset.requestInfo)));
+      }
+
+      function requestInfo() {
+        activeDealRoomTab = "messages";
+        updateDealRoomTabs();
+        const composer = document.querySelector("#dealRoomMessageForm textarea[name='body']");
+        if (composer && !composer.value.trim()) composer.value = "Could you share the missing details for this request?";
+        composer?.focus();
+      }
+
+      function renderDealRoomMessage(message) {
+        return `<article class="item"><strong>${escapeHtml(message.senderName || displayLabel(message.senderRole) || "Sender")}</strong><span>${escapeHtml(displayLabel(message.kind || "message"))}</span><p>${escapeHtml(message.body)}</p><p>${escapeHtml(message.createdAtClient || "")}</p></article>`;
+      }
+
+      async function sendDealRoomMessage(event) {
+        event.preventDefault();
+        const order = orders.find((item) => item.id === activeDealRoomOrderId);
+        if (!order) return;
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        const room = order.dealRoom || createDealRoom(order, { currency: order.currency || profile.currency || "USD" });
+        const submitButton = event.target.querySelector("button[type='submit']");
+        try {
+          submitButton.disabled = true;
+          showStatus("#dealRoomStatus", "Sending message...");
+          const message = buildDealRoomMessage({
+            ...data,
+            ownerUid: user.uid,
+            orderId: order.id,
+            roomId: room.roomId,
+            senderRole: "owner",
+            senderName: profile.businessName || account.businessName || user.email,
+            recipientName: room.partnerName,
+            channel: "dashboard"
+          });
+          await createOrderMessage(user.uid, order.id, message);
+          const nextRoom = updateDealRoomAfterMessage(room, message);
+          await updateOwnerCollectionDoc(user.uid, "orders", order.id, { dealRoom: nextRoom });
+          await recordAudit("deal_room_message_sent", "Deal room message sent", {
+            orderId: order.id,
+            roomId: room.roomId,
+            kind: message.kind,
+            routeCommand: message.route.command
+          });
+          event.target.reset();
+          activeDealRoomMessages = await listOrderMessages(user.uid, order.id);
+          order.dealRoom = nextRoom;
+          renderDealRoom();
+          showStatus("#dealRoomStatus", "Message sent and recorded.");
+        } catch (error) {
+          showErrorStatus("#dealRoomStatus", `Message was not saved: ${error.message}`);
+        } finally {
+          submitButton.disabled = false;
+        }
+      }
+
+      function renderAnalytics() {
+        const pending = inbox.filter((item) => item.status === DEAL_STATUS.PENDING_HUMAN_APPROVAL || item.status === DEAL_STATUS.NEGOTIATING).length;
+        const approvedOrders = orders.filter((item) => [DEAL_STATUS.COMPLETE, DEAL_STATUS.COMPLETED, DEAL_STATUS.ORDER_CREATED, DEAL_STATUS.APPROVED, DEAL_STATUS.PAYMENT_SENT, DEAL_STATUS.DELIVERED].includes(item.status));
+        const value = approvedOrders.reduce((sum, item) => sum + (Number(item.budgetAmount) || 0), 0);
+        const completed = orders.filter((item) => item.status === DEAL_STATUS.COMPLETE || item.status === DEAL_STATUS.COMPLETED).length;
+        document.querySelector("#analyticsPending").textContent = pending;
+        document.querySelector("#analyticsValue").textContent = `${profile.currency || "USD"} ${value}`;
+        document.querySelector("#analyticsCompletion").textContent = orders.length ? `${Math.round((completed / orders.length) * 100)}%` : "0%";
+        document.querySelector("#analyticsCapability").textContent = profile.capabilityName || "-";
+      }
+
+      async function saveProfileForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        const score = computeReadiness(data, { ...profile, ...data });
+        await saveOwnerProfile(user.uid, {
+          ...data,
+          readinessScore: score,
+          status: PROFILE_STATUS.PENDING_REVIEW,
+          registryStatus: profile.registryStatus || REGISTRY_STATUS.NOT_PUBLISHED
+        });
+        await recordAudit("profile_update", "Agent profile saved", { readinessScore: score, businessName: data.businessName });
+        showStatus("#profileStatusBox", `Saved. ${score}%`);
+        await reloadAll();
+      }
+
+      async function saveSentRequest(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        const requestPayload = {
+          ...data,
+          requesterOwnerUid: user.uid,
+          requesterName: profile.businessName || account.businessName || user.email,
+          targetName: data.targetName,
+          title: `${data.capabilityId} request to ${data.targetName}`
+        };
+        const evaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        const docRef = await createOwnerDealRequest(user.uid, {
+          ...requestPayload,
+          agentEvaluation: evaluation,
+          status: evaluation.status
+        });
+        await recordAudit("deal_request_sent", "Deal request sent", { targetName: data.targetName, status: evaluation.status, summary: evaluation.summary });
+        showStatus("#sentStatus", "Request saved.");
+        event.target.reset();
+        await reloadAll();
+      }
+
+      async function saveApprovalForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        let rejectionReason = null;
+        if (data.decision === DEAL_STATUS.REJECTED) {
+          if (!data.reasonCategory || !String(data.reason || "").trim()) {
+            rejectionReason = await requestRejectionReason({
+              title: "Reject deal",
+              description: "",
+              category: data.reasonCategory,
+              note: data.reason
+            });
+            if (!rejectionReason) return;
+            data.reasonCategory = rejectionReason.category;
+            data.reason = rejectionReason.note;
+            event.target.elements.namedItem("reasonCategory").value = rejectionReason.category;
+            event.target.elements.namedItem("reason").value = rejectionReason.note;
+          } else {
+            try {
+              rejectionReason = normalizeRejectionReason({
+                category: data.reasonCategory,
+                note: data.reason
+              });
+            } catch (error) {
+              document.querySelector("#approvalStatus").innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
+              return;
+            }
+          }
+          if (!String(rejectionReason.note || "").trim()) {
+            document.querySelector("#approvalStatus").innerHTML = `<p class="message error">Add a short rejection note.</p>`;
+            return;
+          }
+        }
+        const decisionSavedAtClient = new Date().toISOString();
+        const docRef = await saveApprovalDecision(user.uid, {
+          ...data,
+          dealTitle: data.dealTitle,
+          status: data.decision,
+          rejectionReason,
+          decisionSavedAtClient,
+          approverEmail: profile.approvalEmail || user.email
+        });
+        await recordAudit(`approval_${data.decision}`, `Deal ${data.decision}`, {
+          dealTitle: data.dealTitle,
+          reason: data.reason,
+          reasonCategory: data.reasonCategory
+        });
+        if (rejectionReason) {
+          await recordAudit("rejection_reason_recorded", "Rejection reason recorded", {
+            dealTitle: data.dealTitle,
+            reasonCategory: rejectionReason.category
+          });
+          await recordTrustScoreChange(TRUST_SCORE_EVENT.REJECTED_WITH_REASON, "Rejected with reason", { dealTitle: data.dealTitle });
+        }
+        let orderRef = null;
+        if (data.decision === DEAL_STATUS.APPROVED) {
+          const orderDraft = {
+            title: data.dealTitle,
+            status: DEAL_STATUS.APPROVED,
+            confirmations: {
+              buyerPaid: false,
+              sellerReceived: false
+            },
+            reason: data.reason || "Approved from dashboard",
+            budgetAmount: 0,
+            currency: profile.currency || "USD"
+          };
+          orderRef = await createOrder(user.uid, {
+            ...orderDraft,
+            approvalId: docRef.id,
+            approvedAtClient: decisionSavedAtClient,
+            dealRoom: createDealRoom(orderDraft, {
+              partnerName: "Requesting entity",
+              currency: orderDraft.currency
+            })
+          });
+          await updateOwnerCollectionDoc(user.uid, "approvals", docRef.id, {
+            orderId: orderRef.id,
+            approvedAtClient: decisionSavedAtClient,
+            approvalStatusMessage: "Approved. Agent request is ready in Deal Room."
+          });
+          await recordAudit("order_created", "Request created from approval", { dealTitle: data.dealTitle });
+        } else {
+          await updateOwnerCollectionDoc(user.uid, "approvals", docRef.id, {
+            rejectedAtClient: decisionSavedAtClient,
+            approvalStatusMessage: "Rejected. Reason saved."
+          });
+        }
+        event.target.reset();
+        await reloadAll();
+        if (orderRef) {
+          activeDealRoomOrderId = orderRef.id;
+          await openDealRoom(orderRef.id);
+          showStatus("#approvalStatus", "Approved. Agent request is ready in Deal Room.");
+          showStatus("#dealRoomStatus", "Approved. Agent request is ready.");
+        } else {
+          showStatus("#approvalStatus", `Rejected. Reason saved: ${displayLabel(rejectionReason.category)}.`);
+        }
+      }
+
+      async function saveApiForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        await saveOwnerProfile(user.uid, data);
+        showStatus("#apiStatus", "Saved.");
+        await reloadAll();
+      }
+
+      async function saveSettingsForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        await updateOwnerAccount(user.uid, {
+          businessName: data.businessName,
+          teamEmail: data.teamEmail
+        });
+        await saveOwnerProfile(user.uid, { businessName: data.businessName, approvalEmail: data.approvalEmail });
+        showStatus("#settingsStatus", "Saved.");
+        await reloadAll();
+      }
+
+      async function saveAppearanceForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        const theme = data.theme || "dark";
+        applyTheme(theme);
+        localStorage.setItem("dnols.theme", theme);
+        await updateOwnerAccount(user.uid, {
+          preferences: {
+            ...(account.preferences || {}),
+            theme
+          }
+        });
+        showStatus("#appearanceStatus", "Appearance saved.");
+        await reloadAll();
+      }
+
+      async function saveNotificationsForm(event) {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        const notificationPreferences = {
+          channel: data.notificationChannel || "email",
+          dealRequests: data.dealRequests === "true",
+          humanApprovals: data.humanApprovals === "true",
+          weeklySummary: data.weeklySummary === "true"
+        };
+        await updateOwnerAccount(user.uid, {
+          notificationChannel: notificationPreferences.channel,
+          notificationPreferences
+        });
+        showStatus("#notificationsStatus", "Saved.");
+        await reloadAll();
+      }
+
+      async function sendDashboardPasswordReset() {
+        await resetPassword(user.email);
+        showStatus("#settingsStatus", "Reset sent.");
+      }
+
+      async function saveAgentConfigForm(event, sectionKey, statusSelector) {
+        event.preventDefault();
+        const data = normalizeAgentConfigSection(sectionKey, Object.fromEntries(new FormData(event.target).entries()));
+        const agentConfig = {
+          ...(profile.agentConfig || {}),
+          status: profile.agentConfig?.status || "draft",
+          [sectionKey]: data,
+          updatedAtClient: new Date().toISOString()
+        };
+        await saveOwnerProfile(user.uid, { agentConfig });
+        await recordAudit("agent_config_saved", `Agent ${sectionKey} saved`, { sectionKey });
+        showStatus(statusSelector, "Saved.");
+        await reloadAll();
+      }
+
+      async function submitForPublishingReview() {
+        const gaps = publicListingGaps(profile);
+        if (gaps.length) {
+          document.querySelector("#publishStatus").innerHTML = `<p class="message">${escapeHtml(`Missing: ${gaps.join(", ")}`)}</p>`;
+          return;
+        }
+        await updatePublishingStatus(REGISTRY_STATUS.PENDING_REVIEW);
+      }
+
+      async function updatePublishingStatus(registryStatus) {
+        const transition = transitionPublishingStatus(profile, registryStatus);
+        await saveOwnerProfile(user.uid, {
+          status: transition.status,
+          registryStatus: transition.registryStatus,
+          publishing: {
+            submittedAtClient: new Date().toISOString(),
+            publicPreview: buildPublicListing(profile, account)
+          }
+        });
+        await recordAudit("publishing_status_changed", "Publishing status changed", transition);
+        showStatus("#publishStatus", registryStatus === REGISTRY_STATUS.PAUSED ? "Paused." : "Submitted.");
+        await reloadAll();
+      }
+
+      async function recordAudit(type, title, details = {}) {
+        await createAuditEvent(user.uid, buildAuditEvent(type, title, details));
+      }
+
+      async function recordTrustScoreChange(eventType, title, details = {}) {
+        const change = applyTrustScoreChange(profile.trustScore ?? 50, eventType);
+        profile = {
+          ...profile,
+          trustScore: change.nextScore
+        };
+        await saveOwnerProfile(user.uid, {
+          trustScore: change.nextScore,
+          trustSignals: {
+            ...(profile.trustSignals || {}),
+            lastEventType: eventType,
+            lastDelta: change.delta,
+            updatedAtClient: new Date().toISOString()
+          }
+        });
+        await recordAudit("trust_score_changed", title, {
+          ...details,
+          eventType,
+          previousScore: change.previousScore,
+          nextScore: change.nextScore,
+          delta: change.delta
+        });
+      }
+
+      async function syncLifecycleSignals() {
+        const suspicion = evaluateBypassSuspicion({ orders, approvals });
+        const overdueIds = new Set(suspicion.overdueOrderIds);
+        const updates = [];
+        for (const order of orders) {
+          if (overdueIds.has(order.id) && !order.deadlineFollowUp?.overdue) {
+            updates.push(
+              updateOwnerCollectionDoc(user.uid, "orders", order.id, {
+                deadlineFollowUp: {
+                  overdue: true,
+                  detectedAtClient: new Date().toISOString()
+                }
+              })
+            );
+            order.deadlineFollowUp = {
+              overdue: true,
+              detectedAtClient: new Date().toISOString()
+            };
+          }
+          if (suspicion.suspected && !order.bypassSignal?.suspected && overdueIds.has(order.id)) {
+            const bypassRoom = appendDealRoomTimeline(order.dealRoom || createDealRoom(order), {
+              kind: DEAL_ROOM_MESSAGE_KIND.SYSTEM,
+              label: "Possible bypass signal detected",
+              detail: suspicion.reasons.join(", "),
+              createdAtClient: new Date().toISOString()
+            });
+            updates.push(
+              updateOwnerCollectionDoc(user.uid, "orders", order.id, {
+                status: DEAL_STATUS.BYPASSED,
+                dealRoom: {
+                  ...bypassRoom,
+                  status: "bypassed"
+                },
+                bypassSignal: {
+                  suspected: true,
+                  reasons: suspicion.reasons,
+                  detectedAtClient: new Date().toISOString()
+                }
+              })
+            );
+            order.status = DEAL_STATUS.BYPASSED;
+            order.bypassSignal = {
+              suspected: true,
+              reasons: suspicion.reasons,
+              detectedAtClient: new Date().toISOString()
+            };
+            updates.push(recordAudit("bypass_suspected", "Possible bypass signal detected", {
+              orderId: order.id,
+              reasons: suspicion.reasons
+            }));
+          }
+        }
+        if (suspicion.suspected && suspicion.foundBetterRejections > 0 && !profile.trustSignals?.lastBypassSignalAtClient) {
+          updates.push(saveOwnerProfile(user.uid, {
+            trustSignals: {
+              ...(profile.trustSignals || {}),
+              bypassSuspected: true,
+              bypassReasons: suspicion.reasons,
+              foundBetterRejections: suspicion.foundBetterRejections,
+              lastBypassSignalAtClient: new Date().toISOString()
+            }
+          }));
+          updates.push(recordAudit("bypass_suspected", "Possible bypass signal detected", {
+            reasons: suspicion.reasons,
+            foundBetterRejections: suspicion.foundBetterRejections,
+            overdueUnconfirmedCount: suspicion.overdueUnconfirmedCount
+          }));
+          profile.trustSignals = {
+            ...(profile.trustSignals || {}),
+            bypassSuspected: true,
+            bypassReasons: suspicion.reasons,
+            foundBetterRejections: suspicion.foundBetterRejections,
+            lastBypassSignalAtClient: new Date().toISOString()
+          };
+        }
+        if (updates.length) await Promise.all(updates);
+      }
+
+      function previewPublicListing() {
+        const gaps = publicListingGaps(profile);
+        if (gaps.length) {
+          document.querySelector("#publicPreview").innerHTML = gaps.map((gap) => itemHtml("Missing", gap)).join("");
+          return;
+        }
+        const listing = buildPublicListing(profile, account);
+        document.querySelector("#publicPreview").innerHTML = [
+          itemHtml("Name", listing.name),
+          itemHtml("Public ID", displayLabel(listing.namespace)),
+          itemHtml("Summary", listing.summary),
+          itemHtml("Capability", listing.capabilities[0]?.name),
+          itemHtml("Region", `${listing.country || "-"} / ${listing.region || "-"}`),
+          itemHtml("Execution", displayLabel(listing.execution.mode)),
+          itemHtml("Approval", listing.agentProfile.humanApprovalRequired ? "Required" : "Configured")
+        ].join("");
+      }
+
+      function publicListingGaps(source) {
+        const config = source.agentConfig || {};
+        const gaps = [];
+        if (!source.businessName) gaps.push("Business name");
+        if (!source.domain) gaps.push("Domain");
+        if (!source.category) gaps.push("Category");
+        if (!source.region) gaps.push("Region");
+        if (!(config.capability?.name || source.capabilityName)) gaps.push("Capability name");
+        if (!(config.capability?.description || source.capabilityDescription || source.summary)) gaps.push("Capability description or summary");
+        if (!(config.escalationRules?.approvalEmail || source.approvalEmail)) gaps.push("Approval email");
+        return gaps;
+      }
+
+      function buildPublicListing(source, ownerAccount) {
+        const config = source.agentConfig || {};
+        const capability = config.capability || {};
+        const rules = config.negotiationRules || {};
+        const execution = config.execution || {};
+        const slug = slugify(source.businessName || ownerAccount.businessName || user.email || "business");
+        const namespace = source.namespace || `com.dnols.${slug}`;
+        const currency = (rules.currencies || source.currency || "USD").split(",")[0].trim() || "USD";
+
+        return {
+          schemaVersion: 1,
+          namespace,
+          name: source.businessName || ownerAccount.businessName || "Business Agent",
+          summary: source.summary || capability.description || source.capabilityDescription || "Business agent profile published by Dnols.",
+          category: source.category || "business-service",
+          country: source.country || "",
+          region: source.region || "",
+          language: config.instructions?.language || source.language || "English",
+          domain: source.domain || "",
+          publicUrl: source.domain ? `https://${source.domain}` : "",
+          tags: splitTags(capability.tags || source.tags),
+          trust: source.trust || "self-attested",
+          score: readinessScore(),
+          capabilities: [
+            {
+              id: slugify(capability.name || source.capabilityName || "business-service"),
+              name: capability.name || source.capabilityName || "Business service",
+              description: capability.description || source.capabilityDescription || source.summary || "",
+              tags: splitTags(capability.tags || source.tags),
+              inputNeeded: capability.inputNeeded || "Buyer request details, budget, region, and deadline.",
+              outputProvided: capability.outputProvided || "Quote or approval-ready deal summary.",
+              turnaround: capability.turnaround || "",
+              priceModel: capability.priceModel || source.pricingModel || "quote",
+              requiresHumanConfirmation: capability.requiresConfirmation !== false
+            }
+          ],
+          agentProfile: {
+            status: source.registryStatus === REGISTRY_STATUS.PUBLISHED ? REGISTRY_STATUS.PUBLISHED : REGISTRY_STATUS.PENDING_REVIEW,
+            dealRequests: true,
+            humanApprovalRequired: true,
+            maxAutonomousDealValue: numberOrZero(rules.maxDealValue || source.maxDealValue),
+            approvalRequiredAbove: numberOrZero(rules.approvalRequiredAbove || source.approvalRequiredAbove),
+            currency,
+            executionMode: execution.executionMode || source.executionPreference || "manual"
+          },
+          execution: {
+            mode: execution.executionMode || source.executionPreference || "manual",
+            protocol: source.protocol || "rest",
+            endpointMetadata: execution.endpoint || source.endpoint ? "metadata_available" : "manual_only",
+            authType: execution.authType || source.authType || "none",
+            requiresConfirmation: true
+          },
+          contact: {
+            approvalEmail: config.escalationRules?.approvalEmail || source.approvalEmail || "",
+            publicContact: source.contact || source.approvalEmail || ""
+          }
+        };
+      }
+
+      function normalizeAgentConfigSection(sectionKey, data) {
+        if (sectionKey === "capability") {
+          return {
+            ...data,
+            requiresConfirmation: data.requiresConfirmation === "true"
+          };
+        }
+        if (sectionKey === "negotiationRules") {
+          return {
+            ...data,
+            minimumPrice: numberOrZero(data.minimumPrice),
+            maxDiscount: numberOrZero(data.maxDiscount),
+            maxDealValue: numberOrZero(data.maxDealValue),
+            approvalRequiredAbove: numberOrZero(data.approvalRequiredAbove)
+          };
+        }
+        if (sectionKey === "escalationRules") {
+          return {
+            ...data,
+            confidenceThreshold: numberOrZero(data.confidenceThreshold),
+            customTerms: data.customTerms === "true",
+            outsideRegion: data.outsideRegion === "true",
+            priceAboveThreshold: data.priceAboveThreshold === "true"
+          };
+        }
+        if (sectionKey === "execution") {
+          return {
+            ...data,
+            requiresIdempotencyKey: data.requiresIdempotencyKey === "true",
+            requiresConfirmation: data.requiresConfirmation === "true"
+          };
+        }
+        return data;
+      }
+
+      async function runAgentTest(event) {
+        event.preventDefault();
+        const input = Object.fromEntries(new FormData(event.target).entries());
+        const result = simulateAgentRun(input);
+        await createAgentRun(user.uid, {
+          ...result,
+          result,
+          type: AGENT_RUN_TYPE.TEST_SIMULATION,
+          status: result.approvalRequired ? DEAL_STATUS.PENDING_HUMAN_APPROVAL : "draft_ready"
+        });
+        await recordAudit("test_simulation_run", "Test saved", {
+          status: result.approvalRequired ? DEAL_STATUS.PENDING_HUMAN_APPROVAL : "draft_ready",
+          summary: result.draftDeal.summary
+        });
+        document.querySelector("#agentTestResult").innerHTML = `<p class="message ok">Test saved.</p>${renderAgentTestResult(result)}`;
+        await reloadAll();
+      }
+
+      async function sendOwnerAgentChat(event) {
+        event.preventDefault();
+        const input = Object.fromEntries(new FormData(event.target).entries());
+        const fallbackChat = buildOwnerAgentChatResponse(profile, profile.agentConfig || {}, input);
+        const chat = await requestOwnerAgentChat(input, fallbackChat);
+        await createAgentRun(user.uid, {
+          ...chat,
+          result: {
+            topic: chat.topic,
+            nextActions: chat.nextActions,
+            provider: chat.provider || "deterministic",
+            fallbackReason: chat.fallbackReason || ""
+          }
+        });
+        await recordAudit("owner_agent_chat", "Owner chatted with agent", {
+          topic: chat.topic,
+          summary: chat.agentResponse,
+          provider: chat.provider || "deterministic"
+        });
+        event.target.reset();
+        showStatus("#agentChatStatus", chat.provider === "anthropic" ? "Message saved with Claude assistance." : "Message saved with deterministic guidance.");
+        await reloadAll();
+      }
+
+      async function requestOwnerAgentChat(input, fallbackChat) {
+        try {
+          const response = await fetch("/api/agent-chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              userContext: {
+                uid: user.uid,
+                email: user.email || ""
+              },
+              profile: compactAgentChatProfile(profile),
+              agentConfig: compactAgentChatConfig(profile.agentConfig || {}),
+              input: {
+                message: input.message || ""
+              }
+            })
+          });
+          const contentType = response.headers.get("content-type") || "";
+          if (!response.ok || !contentType.includes("application/json")) {
+            throw new Error("Agent chat backend unavailable.");
+          }
+          const payload = await response.json();
+          if (!payload.ok || !payload.chat?.agentResponse) {
+            throw new Error("Agent chat backend returned an invalid response.");
+          }
+          return payload.chat;
+        } catch {
+          return {
+            ...fallbackChat,
+            provider: "deterministic",
+            model: null,
+            fallbackReason: "backend_unavailable"
+          };
+        }
+      }
+
+      function compactAgentChatProfile(source = {}) {
+        return {
+          ownerUid: user.uid,
+          businessName: source.businessName || account.businessName || "",
+          category: source.category || "",
+          region: source.region || "",
+          language: source.language || "",
+          summary: source.summary || "",
+          capabilityName: source.capabilityName || "",
+          capabilityDescription: source.capabilityDescription || "",
+          pricingModel: source.pricingModel || "",
+          currency: source.currency || "USD",
+          maxDealValue: numberOrZero(source.maxDealValue),
+          approvalRequiredAbove: numberOrZero(source.approvalRequiredAbove),
+          paymentTerms: source.paymentTerms || ""
+        };
+      }
+
+      function compactAgentChatConfig(source = {}) {
+        const capability = source.capability || {};
+        const rules = source.negotiationRules || {};
+        const escalation = source.escalationRules || {};
+        const memory = source.memory || {};
+        return {
+          capability: {
+            name: capability.name || "",
+            description: capability.description || "",
+            tags: capability.tags || "",
+            priceModel: capability.priceModel || "",
+            requiresConfirmation: capability.requiresConfirmation !== false
+          },
+          negotiationRules: {
+            maxDealValue: numberOrZero(rules.maxDealValue),
+            approvalRequiredAbove: numberOrZero(rules.approvalRequiredAbove),
+            currencies: rules.currencies || profile.currency || "USD",
+            paymentTerms: rules.paymentTerms || ""
+          },
+          escalationRules: {
+            timeout: escalation.timeout || "",
+            customTerms: Boolean(escalation.customTerms),
+            outsideRegion: Boolean(escalation.outsideRegion),
+            priceAboveThreshold: Boolean(escalation.priceAboveThreshold)
+          },
+          memory: {
+            services: memory.services || "",
+            serviceAreas: memory.serviceAreas || "",
+            policies: memory.policies || "",
+            requiredBuyerInfo: memory.requiredBuyerInfo || ""
+          }
+        };
+      }
+
+      function simulateAgentRun(input) {
+        const config = profile.agentConfig || {};
+        const rules = config.negotiationRules || {};
+        const memory = config.memory || {};
+        const capability = config.capability || {};
+        const budget = numberOrZero(input.budget);
+        const threshold = numberOrZero(rules.approvalRequiredAbove || profile.approvalRequiredAbove);
+        const allowedRegionText = `${memory.serviceAreas || profile.region || ""}`.toLowerCase();
+        const buyerRegion = `${input.region || ""}`.toLowerCase();
+        const requestedCapability = `${input.capability || input.request || ""}`.toLowerCase();
+        const capabilityName = `${capability.name || profile.capabilityName || ""}`.toLowerCase();
+        const triggers = [];
+
+        if (threshold > 0 && budget > threshold) triggers.push(`Budget is above the approval limit (${budget} > ${threshold}).`);
+        if (buyerRegion && allowedRegionText && !allowedRegionText.includes(buyerRegion)) triggers.push("Buyer region is outside the configured service area.");
+        if (requestedCapability && capabilityName && !requestedCapability.includes(capabilityName.split(" ")[0])) triggers.push("Requested capability may need review.");
+        if (!capabilityName && !profile.capabilityName) triggers.push("No capability is configured yet.");
+
+        const approvalRequired = triggers.length > 0 || capability.requiresConfirmation !== false;
+        const businessName = profile.businessName || account.businessName || "this business";
+        const draftResponse = approvalRequired
+          ? `Thanks for the request. I can prepare this for ${businessName}, but a human owner must approve before anything is finalized.`
+          : `Thanks for the request. ${businessName} can prepare a draft quote based on the provided budget, region, and deadline.`;
+
+        return {
+          title: "Agent test",
+          request: input.request || "",
+          budget,
+          region: input.region || "",
+          deadline: input.deadline || "",
+          capability: input.capability || capability.name || profile.capabilityName || "",
+          approvalRequired,
+          triggers,
+          draftResponse,
+          draftDeal: {
+            status: approvalRequired ? DEAL_STATUS.PENDING_HUMAN_APPROVAL : "draft_ready",
+            currency: (rules.currencies || profile.currency || "USD").split(",")[0].trim(),
+            summary: `${businessName} can review a ${input.capability || capability.name || "business service"} request for ${input.region || "the requested region"}.`
+          }
+        };
+      }
+
+      function renderAgentTestResult(result) {
+        return `
+          <article class="item">
+            <strong>${escapeHtml(result.approvalRequired ? "Human approval required" : "Draft can continue")}</strong>
+            <span>${escapeHtml(displayLabel(result.draftDeal.status))}</span>
+            <p>${escapeHtml(result.draftResponse)}</p>
+            <p>${escapeHtml(result.triggers.length ? result.triggers.join(" ") : "No review rule triggered.")}</p>
+            <p>${escapeHtml(result.draftDeal.summary)}</p>
+          </article>
+        `;
+      }
+
+      async function runHumanNegotiation(event) {
+        event.preventDefault();
+        const input = Object.fromEntries(new FormData(event.target).entries());
+        const draft = buildNegotiationDraft(profile, profile.agentConfig || {}, input);
+        currentNegotiationDraft = draft;
+        await createAgentRun(user.uid, {
+          title: draft.title,
+          type: AGENT_RUN_TYPE.HUMAN_NEGOTIATION,
+          status: draft.status,
+          result: draft,
+          draftResponse: draft.agentResponse,
+          approvalRequired: draft.approvalRequired
+        });
+        await recordAudit("human_negotiation_run", "Human to agent negotiation run", {
+          title: draft.title,
+          status: draft.status,
+          decisionRecommendation: draft.decisionRecommendation,
+          riskCount: draft.riskFlags.length
+        });
+        renderNegotiationDraft(draft);
+        await reloadAll();
+        currentNegotiationDraft = draft;
+        renderNegotiationDraft(draft);
+      }
+
+      function renderNegotiationDraft(draft) {
+        document.querySelector("#autofillApprovalBtn").disabled = !draft;
+        document.querySelector("#saveNegotiationInboxBtn").disabled = !draft;
+        document.querySelector("#agentNegotiationResult").innerHTML = draft
+          ? `
+            <article class="item">
+              <strong>${escapeHtml(draft.dealTitle)}</strong>
+              <span>${escapeHtml(displayLabel(draft.status))}</span>
+              <p>${escapeHtml(draft.agentResponse)}</p>
+            </article>
+            <div class="list">
+              ${draft.processSteps.map((step) => itemHtml(step.label, step.detail)).join("")}
+              ${draft.riskFlags.length ? draft.riskFlags.map((flag) => itemHtml("Risk", flag)).join("") : itemHtml("Recommendation", "Ready for approval.")}
+              ${itemHtml("Approval draft", `${displayLabel(draft.decisionRecommendation)} - ${draft.reason}`)}
+            </div>
+          `
+          : emptyHtml("No draft.");
+      }
+
+      async function autofillApprovalFromDraft() {
+        if (!currentNegotiationDraft) return;
+        const form = document.querySelector("#approvalForm");
+        form.elements.namedItem("dealTitle").value = currentNegotiationDraft.approvalFields.dealTitle;
+        form.elements.namedItem("decision").value = currentNegotiationDraft.approvalFields.decision;
+        form.elements.namedItem("reason").value = currentNegotiationDraft.approvalFields.reason;
+        if (currentNegotiationDraft.approvalFields.decision === DEAL_STATUS.REJECTED) {
+          form.elements.namedItem("reasonCategory").value = "other";
+        }
+        await recordAudit("approval_autofilled", "Approval form autofilled from agent draft", {
+          dealTitle: currentNegotiationDraft.approvalFields.dealTitle,
+          decision: currentNegotiationDraft.approvalFields.decision
+        });
+        showSection("approvals");
+        showStatus("#approvalStatus", "Approval draft filled. Review and save.");
+      }
+
+      async function saveNegotiationAsInbox() {
+        if (!currentNegotiationDraft) return;
+        const docRef = await createOwnerRecord(user.uid, "inbox", {
+          ...currentNegotiationDraft.requestPayload,
+          title: currentNegotiationDraft.dealTitle,
+          agentEvaluation: currentNegotiationDraft.evaluation,
+          negotiationDraft: {
+            dealTitle: currentNegotiationDraft.dealTitle,
+            decisionRecommendation: currentNegotiationDraft.decisionRecommendation,
+            reason: currentNegotiationDraft.reason,
+            riskFlags: currentNegotiationDraft.riskFlags,
+            processSteps: currentNegotiationDraft.processSteps
+          },
+          status: currentNegotiationDraft.status
+        });
+        await recordAudit("request_created_from_negotiation", "Incoming request created from negotiation draft", {
+          dealTitle: currentNegotiationDraft.dealTitle,
+          requestId: docRef.id,
+          status: currentNegotiationDraft.status
+        });
+        showStatus("#agentNegotiationResult", "Incoming request saved.");
+        await reloadAll();
+      }
+
+      function clearNegotiationDraft() {
+        currentNegotiationDraft = null;
+        document.querySelector("#agentNegotiationTaskForm").reset();
+        renderNegotiationDraft(null);
+      }
+
+      async function addSampleInbox() {
+        const requestPayload = {
+          title: "Sample incoming request",
+          targetName: profile.businessName || account.businessName || "Your business",
+          targetNamespace: profile.namespace || "draft.profile",
+          capabilityId: profile.capabilityName || "business-service",
+          requirements: "A buyer is requesting a sample quote that needs approval before execution.",
+          budgetAmount: 500,
+          currency: profile.currency || "USD",
+          deadline: "2026-07-30"
+        };
+        const evaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        await createOwnerRecord(user.uid, "inbox", {
+          ...requestPayload,
+          agentEvaluation: evaluation,
+          status: evaluation.status
+        });
+        await createAgentRun(user.uid, {
+          title: "Incoming request reviewed",
+          type: AGENT_RUN_TYPE.INCOMING_REQUEST_REVIEW,
+          status: evaluation.status,
+          result: evaluation,
+          draftResponse: evaluation.summary
+        });
+        await recordAudit("incoming_request_reviewed", "Incoming request reviewed", {
+          status: evaluation.status,
+          summary: evaluation.summary
+        });
+        await reloadAll();
+      }
+
+      async function decideInbox(id, decision) {
+        const inboxItem = inbox.find((item) => item.id === id);
+        if (!inboxItem) return;
+        const nextStatus = decision === DEAL_STATUS.APPROVED ? DEAL_STATUS.APPROVED : DEAL_STATUS.REJECTED;
+        const decisionSavedAtClient = new Date().toISOString();
+        let rejectionReason = null;
+        if (decision === DEAL_STATUS.REJECTED) {
+          rejectionReason = await requestRejectionReason({
+            title: "Reject incoming request",
+            description: ""
+          });
+          if (!rejectionReason) return;
+        }
+        await saveApprovalDecision(user.uid, {
+          dealTitle: inboxItem.title || "Incoming request",
+          decision,
+          status: nextStatus,
+          reason: rejectionReason?.note || `${decision} from dashboard inbox`,
+          reasonCategory: rejectionReason?.category || "",
+          rejectionReason,
+          inboxId: id,
+          decisionSavedAtClient,
+          approverEmail: profile.approvalEmail || user.email
+        });
+        let orderRef = null;
+        if (decision === DEAL_STATUS.APPROVED) {
+          const orderDraft = {
+            title: inboxItem.title || "Approved incoming request",
+            status: DEAL_STATUS.APPROVED,
+            confirmations: {
+              buyerPaid: false,
+              sellerReceived: false
+            },
+            reason: "Approved from inbox",
+            budgetAmount: inboxItem.budgetAmount || 0,
+            currency: inboxItem.currency || profile.currency || "USD",
+            deadline: inboxItem.deadline || "",
+            partnerName: inboxItem.requesterName || inboxItem.targetName || "Requesting entity",
+            agentTranscript: inboxItem.negotiationDraft?.processSteps || []
+          };
+          orderRef = await createOrder(user.uid, {
+            ...orderDraft,
+            approvedAtClient: decisionSavedAtClient,
+            sourceInboxId: id,
+            dealRoom: createDealRoom(orderDraft, {
+              partnerName: orderDraft.partnerName,
+              currency: orderDraft.currency,
+              agentTranscript: orderDraft.agentTranscript
+            })
+          });
+          await updateOwnerCollectionDoc(user.uid, "inbox", id, {
+            status: DEAL_STATUS.APPROVED,
+            orderId: orderRef.id,
+            approvedAtClient: decisionSavedAtClient,
+            decisionSavedAtClient,
+            approvalStatusMessage: "Approved. Agent request is ready in Deal Room."
+          });
+          await recordAudit("order_created", "Request created from inbox approval", { dealTitle: inboxItem.title, orderId: orderRef.id });
+        } else {
+          await updateOwnerCollectionDoc(user.uid, "inbox", id, {
+            status: nextStatus,
+            rejectionReason,
+            reason: rejectionReason.note,
+            reasonCategory: rejectionReason.category,
+            rejectedAtClient: decisionSavedAtClient,
+            decisionSavedAtClient,
+            approvalStatusMessage: "Rejected. Reason saved."
+          });
+          await recordAudit("request_rejected", "Incoming request rejected", {
+            dealTitle: inboxItem.title,
+            reasonCategory: rejectionReason.category
+          });
+          await recordAudit("rejection_reason_recorded", "Rejection reason recorded", {
+            dealTitle: inboxItem.title,
+            reasonCategory: rejectionReason.category
+          });
+          await recordTrustScoreChange(TRUST_SCORE_EVENT.REJECTED_WITH_REASON, "Rejected with reason", { dealTitle: inboxItem.title });
+        }
+        await reloadAll();
+        if (orderRef) {
+          activeDealRoomOrderId = orderRef.id;
+          await openDealRoom(orderRef.id);
+          showStatus("#inboxStatus", "Approved. Agent request is ready in Deal Room.");
+          showStatus("#dealRoomStatus", "Approved. Agent request is ready.");
+        } else {
+          showStatus("#inboxStatus", `Rejected. Reason saved: ${displayLabel(rejectionReason.category)}.`);
+        }
+      }
+
+      function requestRejectionReason(options = {}) {
+        const modal = document.querySelector("#rejectionReasonModal");
+        const form = document.querySelector("#rejectionReasonForm");
+        const title = document.querySelector("#rejectionModalTitle");
+        const description = document.querySelector("#rejectionModalDescription");
+        if (activeRejectionModalResolve) closeRejectionReasonModal(null);
+        title.textContent = options.title || "Reject request";
+        description.textContent = options.description || "";
+        form.reset();
+        form.elements.namedItem("reasonCategory").value = rejectionCategoryValue(options.category || "");
+        form.elements.namedItem("reason").value = options.note || "";
+        clearRejectionReasonModalError();
+        lastRejectionModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        modal.hidden = false;
+        document.body.classList.add("modal-open");
+        window.requestAnimationFrame(() => form.elements.namedItem("reasonCategory").focus());
+        return new Promise((resolve) => {
+          activeRejectionModalResolve = resolve;
+        });
+      }
+
+      function submitRejectionReasonModal(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const data = Object.fromEntries(new FormData(form).entries());
+        try {
+          if (!data.reasonCategory) throw new Error("Choose a rejection category.");
+          if (!String(data.reason || "").trim()) throw new Error("Add a short rejection note.");
+          closeRejectionReasonModal(normalizeRejectionReason({
+            category: data.reasonCategory,
+            note: data.reason
+          }));
+        } catch (error) {
+          document.querySelector("#rejectionModalStatus").innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
+          form.elements.namedItem(data.reasonCategory ? "reason" : "reasonCategory").focus();
+        }
+      }
+
+      function closeRejectionReasonModal(value) {
+        const modal = document.querySelector("#rejectionReasonModal");
+        const form = document.querySelector("#rejectionReasonForm");
+        const resolve = activeRejectionModalResolve;
+        activeRejectionModalResolve = null;
+        modal.hidden = true;
+        document.body.classList.remove("modal-open");
+        form.reset();
+        clearRejectionReasonModalError();
+        if (lastRejectionModalFocus) lastRejectionModalFocus.focus();
+        lastRejectionModalFocus = null;
+        if (resolve) resolve(value);
+      }
+
+      function clearRejectionReasonModalError() {
+        document.querySelector("#rejectionModalStatus").innerHTML = "";
+      }
+
+      function handleRejectionModalKeydown(event) {
+        if (event.key !== "Escape" || document.querySelector("#rejectionReasonModal").hidden) return;
+        closeRejectionReasonModal(null);
+      }
+
+      async function confirmOrder(id, action) {
+        const order = orders.find((item) => item.id === id);
+        if (!order) return;
+        const transition = applyOrderConfirmation(order, action);
+        await updateOwnerCollectionDoc(user.uid, "orders", id, {
+          status: transition.status,
+          confirmations: transition.confirmations,
+          dealRoom: transition.dealRoom,
+          lastLifecycleEventClient: new Date().toISOString()
+        });
+        for (const eventType of transition.auditEvents) {
+          await recordAudit(eventType, orderLifecycleTitle(eventType), { title: order.title || "Agent request", orderId: id });
+        }
+        if (transition.trustScoreEvent) {
+          await recordTrustScoreChange(transition.trustScoreEvent, "Request confirmed complete", { title: order.title || "Agent request", orderId: id });
+        }
+        await reloadAll();
+      }
+
+      async function disputeOrder(id) {
+        const order = orders.find((item) => item.id === id);
+        if (!order) return;
+        const transition = openOrderDispute(order);
+        await updateOwnerCollectionDoc(user.uid, "orders", id, {
+          status: transition.status,
+          disputedAtClient: transition.disputedAtClient,
+          dealRoom: transition.dealRoom
+        });
+        await recordAudit("dispute_opened", "Request dispute opened", { title: order.title || "Agent request", orderId: id });
+        await recordTrustScoreChange(transition.trustScoreEvent, "Dispute opened", { title: order.title || "Agent request", orderId: id });
+        await reloadAll();
+      }
+
+      async function completeOrder(id) {
+        const order = orders.find((item) => item.id === id);
+        if (order?.status === DEAL_STATUS.COMPLETE || order?.status === DEAL_STATUS.COMPLETED || order?.trustSignals?.confirmedAtClient) return;
+        if (!order?.confirmations?.buyerPaid || !order?.confirmations?.sellerReceived) return;
+        const dealRoom = appendDealRoomTimeline(order.dealRoom || createDealRoom(order), {
+          kind: DEAL_ROOM_MESSAGE_KIND.DELIVERY,
+          label: "Request completed",
+          detail: "Both parties confirmed payment and delivery.",
+          createdAtClient: new Date().toISOString()
+        });
+        await updateOwnerCollectionDoc(user.uid, "orders", id, {
+          status: DEAL_STATUS.COMPLETE,
+          dealRoom: {
+            ...dealRoom,
+            status: "complete"
+          },
+          trustSignals: {
+            ...(order.trustSignals || {}),
+            confirmedAtClient: new Date().toISOString()
+          }
+        });
+        await recordAudit("complete", "Request marked complete", { title: order?.title || "Agent request", orderId: id });
+        await recordTrustScoreChange(TRUST_SCORE_EVENT.CONFIRMED, "Request confirmed complete", { title: order?.title || "Agent request", orderId: id });
+        await reloadAll();
+      }
+
+      function showSection(id) {
+        const requestedId = mobileQuery.matches && !mobileSectionIds.has(id) ? "overview" : id;
+        const section = sections.find((item) => item[0] === requestedId) || sections[0];
+        document.querySelectorAll(".section").forEach((element) => element.classList.toggle("active", element.dataset.section === section[0]));
+        document.querySelectorAll("[data-target]").forEach((button) => button.classList.toggle("active", button.dataset.target === section[0]));
+        if (section[0] === "agent") setAgentSpaceView("agentChoices");
+        const businessName = profile.businessName || account.businessName || "your business";
+        document.querySelector("#pageTitle").textContent = section[0] === "overview" ? `Hello, ${businessName}` : section[1];
+        document.querySelector("#pageSubtitle").textContent = section[2] || "";
+      }
+
+      function readinessScore() {
+        return Number(profile.readinessScore) || computeReadiness(profile, profile);
+      }
+
+      function computeReadiness(input, merged) {
+        let score = 30;
+        if (input.businessName || merged.businessName) score += 10;
+        if (input.domain || merged.domain) score += 10;
+        if ((input.category || merged.category) && (input.country || merged.country) && (input.region || merged.region)) score += 15;
+        if (input.capabilityName || merged.capabilityName) score += 10;
+        if (input.approvalEmail || merged.approvalEmail) score += 10;
+        if (Number(input.maxDealValue || merged.maxDealValue) > 0) score += 10;
+        if ((input.executionPreference || merged.executionPreference) === "optional-api" && (input.endpoint || merged.endpoint)) score += 5;
+        return Math.min(100, score);
+      }
+
+      function setValues(selector, values) {
+        const form = document.querySelector(selector);
+        for (const [name, value] of Object.entries(values)) {
+          const field = form.elements.namedItem(name);
+          if (field && value !== undefined && value !== null) field.value = value;
+        }
+      }
+
+      function setCheckboxes(selector, source, names) {
+        const form = document.querySelector(selector);
+        for (const name of names) {
+          const field = form.elements.namedItem(name);
+          if (field) field.checked = Boolean(source[name]);
+        }
+      }
+
+      function applyTheme(theme) {
+        const mode = theme === "system"
+          ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+          : theme;
+        const resolved = mode === "light" ? "light" : "dark";
+        document.documentElement.dataset.theme = resolved;
+        document.body.dataset.theme = resolved;
+      }
+
+      function numberOrZero(value) {
+        return Number(value) || 0;
+      }
+
+      function displayLabel(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+        const labels = {
+          a2a: "A2A",
+          a2a_ready: "A2A ready",
+          "a2a-ready": "A2A ready",
+          api_after_approval: "API after approval",
+          "api-after-approval": "API after approval",
+          api_key: "API key",
+          apiKey: "API key",
+          approved: "Approved",
+          approval_autofilled: "Approval filled",
+          awaiting_confirmation: "Action required",
+          bypass_suspected: "Follow-up needed",
+          cannot_meet_deadline: "Cannot meet deadline",
+          complete: "Complete",
+          completed: "Completed",
+          deal_request_sent: "Request sent",
+          delivered: "Delivered",
+          draft: "Draft",
+          draft_ready: "Draft ready",
+          found_better_option_elsewhere: "Found better option",
+          human_negotiation: "Negotiation draft",
+          human_negotiation_run: "Negotiation draft",
+          incoming_request_review: "Request reviewed",
+          incoming_request_reviewed: "Request reviewed",
+          manual: "Manual",
+          manual_only: "Manual only",
+          mcp: "MCP",
+          mcp_ready: "MCP ready",
+          "mcp-ready": "MCP ready",
+          metadata_available: "Metadata available",
+          negotiating: "Negotiating",
+          new: "New",
+          not_published: "Not published",
+          optional_api: "Optional API",
+          "optional-api": "Optional API",
+          order_created: "Request created",
+          partner: "Requesting Entity",
+          owner_agent_chat: "Agent chat",
+          paused: "Paused",
+          payment_sent: "Payment sent",
+          pending_human_approval: "Needs approval",
+          pending_review: "Pending review",
+          price_too_high: "Price too high",
+          profile_update: "Profile saved",
+          published: "Published",
+          publishing_status_changed: "Publishing updated",
+          rejected: "Rejected",
+          rejection_reason_recorded: "Reason saved",
+          request_created_from_negotiation: "Request saved",
+          request_rejected: "Request rejected",
+          rest: "REST",
+          saved: "Saved",
+          service_not_available: "Service not available",
+          test_simulation: "Test",
+          test_simulation_run: "Test saved",
+          trust_score_changed: "Trust updated"
+        };
+        if (labels[raw]) return labels[raw];
+        return titleCase(raw.replace(/^test[_-]+/, "").replace(/^my[_-]+/, "").replace(/^com[.-]dnols[.-]/, ""));
+      }
+
+      function rejectionCategoryValue(value) {
+        const key = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+        return {
+          better_option: "found_better_option_elsewhere",
+          cannot_meet_deadline: "cannot_meet_deadline",
+          deadline: "cannot_meet_deadline",
+          found_better_option: "found_better_option_elsewhere",
+          found_better_option_elsewhere: "found_better_option_elsewhere",
+          other: "other",
+          price_too_high: "price_too_high",
+          service_not_available: "service_not_available",
+          unavailable: "service_not_available"
+        }[key] || key;
+      }
+
+      function titleCase(value) {
+        return String(value || "")
+          .replace(/[._-]+/g, " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      }
+
+      function slugify(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || "business";
+      }
+
+      function splitTags(value) {
+        return String(value || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function approvalMode(agentConfig) {
+        const threshold = agentConfig.negotiationRules?.approvalRequiredAbove || profile.approvalRequiredAbove;
+        return threshold ? `Above ${profile.currency || "USD"} ${threshold}` : "Human";
+      }
+
+      function showStatus(selector, message) {
+        document.querySelector(selector).innerHTML = `<p class="message ok">${escapeHtml(message)}</p>`;
+      }
+
+      function showErrorStatus(selector, message) {
+        document.querySelector(selector).innerHTML = `<p class="message error">${escapeHtml(message)}</p>`;
+      }
+
+      function itemHtml(title, value) {
+        return `<article class="item"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(value || "-")}</p></article>`;
+      }
+
+      function emptyHtml(message) {
+        return `<p class="message">${escapeHtml(message)}</p>`;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+node_modules/
+.env
+functions/.env
+.DS_Store
+coverage/
+dist/
+.cursor/
+.firebaserc
+.firebase/
+firebase-debug.log

@@ -1,0 +1,188 @@
+{
+  "acmVersion": "0.1.0",
+  "namespace": "com.najd.procurement",
+  "name": "Najd Procurement Exchange",
+  "summary": "Verified procurement capabilities for agents that need to source vendors, request quotes, and check supplier compliance across infrastructure projects.",
+  "publisher": {
+    "name": "Najd Procurement Exchange",
+    "domain": "najd-procurement.example",
+    "did": "did:web:najd-procurement.example",
+    "contact": "agent-ops@najd-procurement.example"
+  },
+  "capabilities": [
+    {
+      "id": "request-supplier-quotes",
+      "name": "Request Supplier Quotes",
+      "description": "Submit a structured sourcing request and receive ranked supplier quotes with delivery windows, compliance notes, and price validity periods.",
+      "tags": [
+        "procurement",
+        "rfq",
+        "suppliers"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "category",
+          "quantity",
+          "deliveryLocation"
+        ],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "deliveryLocation": {
+            "type": "string"
+          },
+          "requiredCertifications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "quotes"
+        ],
+        "properties": {
+          "quotes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/rfqs",
+        "mode": "quote",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      },
+      "examples": [
+        {
+          "intent": "Find three compliant suppliers for concrete barriers in Riyadh.",
+          "input": {
+            "category": "concrete-barriers",
+            "quantity": 120,
+            "deliveryLocation": "Riyadh",
+            "requiredCertifications": [
+              "ISO-9001"
+            ]
+          }
+        }
+      ],
+      "mediaTypes": [
+        "application/json"
+      ]
+    },
+    {
+      "id": "verify-supplier-compliance",
+      "name": "Verify Supplier Compliance",
+      "description": "Check supplier registration, tax standing, insurance status, and project-specific compliance credentials before an agent commits spend.",
+      "tags": [
+        "compliance",
+        "kyb",
+        "procurement"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "supplierId"
+        ],
+        "properties": {
+          "supplierId": {
+            "type": "string"
+          },
+          "projectCode": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "status",
+          "credentials"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "credentials": {
+            "type": "array"
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/suppliers/compliance-checks",
+        "mode": "read",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      }
+    }
+  ],
+  "pricing": {
+    "model": "usage",
+    "currency": "USD",
+    "plans": [
+      {
+        "name": "RFQ request",
+        "price": 1.5,
+        "unit": "request"
+      }
+    ]
+  },
+  "trust": {
+    "verificationStatus": "verified",
+    "credentials": [
+      {
+        "type": "KYB",
+        "issuer": "Gulf Digital Trust",
+        "url": "https://trust.example/credentials/najd-kyb"
+      },
+      {
+        "type": "ISO-27001",
+        "issuer": "Gulf Digital Trust",
+        "url": "https://trust.example/credentials/najd-iso27001"
+      }
+    ],
+    "reputation": {
+      "score": 4.8,
+      "transactionCount": 18420,
+      "disputeRate": 0.004
+    }
+  },
+  "endpoints": {
+    "baseUrl": "https://api.najd-procurement.example",
+    "manifestUrl": "https://najd-procurement.example/.well-known/agent-capabilities.json",
+    "protocols": [
+      {
+        "type": "rest",
+        "url": "https://api.najd-procurement.example/v1"
+      },
+      {
+        "type": "mcp",
+        "url": "https://mcp.najd-procurement.example"
+      }
+    ],
+    "auth": {
+      "type": "oauth2",
+      "authorizationUrl": "https://auth.najd-procurement.example/oauth/authorize"
+    },
+    "rateLimits": {
+      "requestsPerMinute": 120
+    },
+    "sla": {
+      "availability": 99.9,
+      "p95LatencyMs": 350
+    }
+  }
+}

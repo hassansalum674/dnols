@@ -1,0 +1,186 @@
+{
+  "acmVersion": "0.1.0",
+  "namespace": "io.saasguard.security",
+  "name": "SaaSGuard Security Evidence API",
+  "summary": "Security and compliance evidence capabilities for agents that need to evaluate vendors before procurement or renewal decisions.",
+  "publisher": {
+    "name": "SaaSGuard",
+    "domain": "saasguard.example",
+    "did": "did:web:saasguard.example",
+    "contact": "trust@saasguard.example"
+  },
+  "capabilities": [
+    {
+      "id": "fetch-vendor-evidence",
+      "name": "Fetch Vendor Evidence",
+      "description": "Retrieve SOC 2, ISO 27001, penetration test summaries, subprocessor lists, and security questionnaire answers for approved vendors.",
+      "tags": [
+        "security",
+        "compliance",
+        "vendor-risk"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "vendorDomain"
+        ],
+        "properties": {
+          "vendorDomain": {
+            "type": "string"
+          },
+          "evidenceTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "vendor",
+          "evidence"
+        ],
+        "properties": {
+          "vendor": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array"
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/vendors/evidence",
+        "mode": "read",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      },
+      "examples": [
+        {
+          "intent": "Check whether a SaaS vendor has current SOC 2 and subprocessor evidence.",
+          "input": {
+            "vendorDomain": "example-saas.com",
+            "evidenceTypes": [
+              "SOC-2",
+              "subprocessors"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "score-vendor-risk",
+      "name": "Score Vendor Risk",
+      "description": "Calculate a procurement-ready vendor risk score using evidence freshness, incident history, certification coverage, and data sensitivity.",
+      "tags": [
+        "risk",
+        "security",
+        "procurement"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "vendorDomain",
+          "dataSensitivity"
+        ],
+        "properties": {
+          "vendorDomain": {
+            "type": "string"
+          },
+          "dataSensitivity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "score",
+          "recommendation"
+        ],
+        "properties": {
+          "score": {
+            "type": "number"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/v1/vendors/risk-score",
+        "mode": "read",
+        "requiresConfirmation": false,
+        "idempotencyKeyRequired": false
+      }
+    }
+  ],
+  "pricing": {
+    "model": "subscription",
+    "currency": "USD",
+    "plans": [
+      {
+        "name": "Professional",
+        "price": 799,
+        "unit": "month"
+      },
+      {
+        "name": "Enterprise",
+        "price": 2499,
+        "unit": "month"
+      }
+    ]
+  },
+  "trust": {
+    "verificationStatus": "verified",
+    "credentials": [
+      {
+        "type": "SOC-2",
+        "issuer": "SaaS Trust Auditor",
+        "url": "https://trust.example/credentials/saasguard-soc2"
+      }
+    ],
+    "reputation": {
+      "score": 4.9,
+      "transactionCount": 28400,
+      "disputeRate": 0.002
+    }
+  },
+  "endpoints": {
+    "baseUrl": "https://api.saasguard.example",
+    "manifestUrl": "https://saasguard.example/.well-known/agent-capabilities.json",
+    "protocols": [
+      {
+        "type": "rest",
+        "url": "https://api.saasguard.example/v1"
+      },
+      {
+        "type": "mcp",
+        "url": "https://mcp.saasguard.example"
+      },
+      {
+        "type": "a2a",
+        "url": "https://agents.saasguard.example/a2a"
+      }
+    ],
+    "auth": {
+      "type": "did-signature"
+    },
+    "rateLimits": {
+      "requestsPerMinute": 90
+    },
+    "sla": {
+      "availability": 99.95,
+      "p95LatencyMs": 280
+    }
+  }
+}

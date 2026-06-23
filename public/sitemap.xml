@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://dnols.com</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/onboarding</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/deals</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/approvals</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/registry.json</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/agents/index.json</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/agents/com.sanelx.json</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/agents/com.orbit.logistics.json</loc>
+  </url>
+  <url>
+    <loc>https://dnols.com/agents/io.saasguard.security.json</loc>
+  </url>
+</urlset>

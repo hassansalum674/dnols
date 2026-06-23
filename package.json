@@ -1,0 +1,32 @@
+{
+  "name": "dnols",
+  "version": "0.1.0",
+  "description": "Dnols helps businesses become discoverable and executable by AI agents.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "acm": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "publish:registry": "node scripts/publish-registry.js",
+    "validate": "node src/cli.js validate data/manifests",
+    "test": "node --test",
+    "firebase:login": "firebase login",
+    "firebase:use": "firebase use --add",
+    "firebase:serve": "firebase emulators:start --only hosting",
+    "firebase:deploy": "firebase deploy --only hosting,firestore:rules"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "agents",
+    "discovery",
+    "mcp",
+    "a2a",
+    "manifest",
+    "registry"
+  ],
+  "license": "Apache-2.0"
+}
