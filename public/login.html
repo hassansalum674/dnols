@@ -295,7 +295,16 @@
     </main>
 
     <script type="module">
-      import { createOwnerDoc, resetPassword, signIn, signInWithGoogle, signUp, watchUser } from "./firebase-client.js";
+      import {
+        createOwnerDoc,
+        resetPassword,
+        signIn,
+        signInWithGoogle,
+        signOutUser,
+        signUp,
+        watchUser
+      } from "./firebase-client.js";
+      import { validateBusinessEmail } from "./js/business-email.js";
 
       const form = document.querySelector("#authForm");
       const status = document.querySelector("#status");
@@ -321,6 +330,12 @@
         googleBtn.textContent = "Opening Google...";
         try {
           const credentials = await signInWithGoogle();
+          const validation = validateBusinessEmail(credentials.user.email);
+          if (!validation.valid) {
+            await signOutUser();
+            showError(validation.message);
+            return;
+          }
           await createOwnerDoc(credentials.user, credentials.user.displayName || credentials.user.email || "Google Business");
           showOk("Google sign-in successful. Redirecting...");
           window.location.href = nextUrl();
@@ -334,8 +349,9 @@
 
       resetBtn.addEventListener("click", async () => {
         const email = form.elements.email.value.trim();
-        if (!email) {
-          showError("Enter your business email first.");
+        const validation = validateBusinessEmail(email);
+        if (!validation.valid) {
+          showError(validation.message);
           return;
         }
         try {
@@ -352,6 +368,11 @@
         submitBtn.disabled = true;
         submitBtn.textContent = mode === "signup" ? "Creating..." : "Signing in...";
         try {
+          const validation = validateBusinessEmail(data.email);
+          if (!validation.valid) {
+            showError(validation.message);
+            return;
+          }
           if (mode === "signup") {
             const credentials = await signUp(data.email, data.password);
             await createOwnerDoc(credentials.user, data.businessName);

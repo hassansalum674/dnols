@@ -22,6 +22,7 @@ import {
   setDoc,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-lite.js";
+import { assertBusinessEmail } from "./js/business-email.js";
 
 let appPromise;
 let app;
@@ -77,6 +78,7 @@ export async function watchUser(callback) {
 }
 
 export async function signUp(email, password) {
+  assertBusinessEmail(email);
   const authInstance = await getAuth();
   return createUserWithEmailAndPassword(authInstance, email, password);
 }
@@ -104,6 +106,7 @@ export async function signOutUser() {
 }
 
 export async function createOwnerDoc(user, businessName) {
+  assertBusinessEmail(user.email);
   const dbInstance = await getDb();
   const accountRef = doc(dbInstance, "businessAccounts", user.uid);
   await setDoc(

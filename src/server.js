@@ -18,6 +18,11 @@ import { buildPublicRegistryIndex, buildRobotsTxt, buildSitemap } from "./servic
 import { createCheckout, listPlans } from "./services/payments.js";
 import { executeCapability } from "./services/execution.js";
 import { buildOwnerAgentChat, validateAgentChatContext } from "./services/agent-chat.js";
+import {
+  confirmEmailVerification,
+  requestEmailVerification
+} from "./services/email-verification.js";
+import { createBusinessEmailVerifier } from "./services/business-email.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const ROOT = process.cwd();
@@ -32,6 +37,7 @@ const ALLOWED_CORS_ORIGINS = new Set([
   "https://www.dnols.com"
 ]);
 const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const businessEmailVerifier = createBusinessEmailVerifier();
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -175,6 +181,38 @@ async function route(request, response) {
       model: chat.model,
       fallbackReason: chat.fallbackReason
     });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/business-email/start") {
+    const body = await readRequestJson(request);
+    const result = await businessEmailVerifier.startVerification(body);
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/business-email/verify") {
+    const body = await readRequestJson(request);
+    const result = businessEmailVerifier.verifyCode(body);
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/email-verification/request") {
+    const body = await readRequestJson(request);
+    const result = await requestEmailVerification({ email: body.email });
+    sendJson(response, result.statusCode, result);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/email-verification/confirm") {
+    const body = await readRequestJson(request);
+    const result = confirmEmailVerification({
+      email: body.email,
+      code: body.code,
+      token: body.token
+    });
+    sendJson(response, result.statusCode, result);
     return;
   }
 

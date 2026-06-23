@@ -1894,6 +1894,12 @@
                   <label>Account status <input name="accountStatus" readonly /></label>
                   <label>Approval email <input name="approvalEmail" type="email" /></label>
                   <label>Team email <input name="teamEmail" type="email" /></label>
+                  <label>Business email to verify <input name="businessEmail" type="email" placeholder="owner@business.com" /></label>
+                  <label>Verification code <input name="businessEmailCode" inputmode="numeric" maxlength="8" placeholder="6-digit code" /></label>
+                </div>
+                <div class="item-actions">
+                  <button class="btn secondary" id="sendBusinessEmailCodeBtn" type="button">Send verification code</button>
+                  <button class="btn secondary" id="verifyBusinessEmailBtn" type="button">Verify business email</button>
                 </div>
                 <button class="btn" type="submit">Save</button>
                 <button class="btn secondary" id="passwordResetBtn" type="button">Reset password</button>
@@ -2005,10 +2011,15 @@
         updateDealRoomAfterMessage
       } from "./system-logic.js";
       import { mobileSectionIds, routeIndex, sections } from "./js/dashboard/navigation.js";
+      import { validateBusinessEmail } from "./js/business-email.js";
 
       const OWNER_AGENT_CHAT_ENDPOINTS = [
         "https://dnols-83jj.onrender.com/api/agent-chat",
         "/api/agent-chat"
+      ];
+      const BUSINESS_EMAIL_ENDPOINTS = [
+        "https://dnols-83jj.onrender.com/api/business-email",
+        "/api/business-email"
       ];
       const mobileQuery = window.matchMedia("(max-width: 980px)");
 
@@ -2027,6 +2038,7 @@
       let activeDealRoomMessages = [];
       let activeRejectionModalResolve = null;
       let lastRejectionModalFocus = null;
+      let businessEmailChallenge = null;
 
       boot();
 
@@ -2084,6 +2096,8 @@
         document.querySelector("#appearanceForm").elements.namedItem("theme").addEventListener("change", previewTheme);
         document.querySelector("#notificationsForm").addEventListener("submit", saveNotificationsForm);
         document.querySelector("#passwordResetBtn").addEventListener("click", sendDashboardPasswordReset);
+        document.querySelector("#sendBusinessEmailCodeBtn").addEventListener("click", requestBusinessEmailVerification);
+        document.querySelector("#verifyBusinessEmailBtn").addEventListener("click", confirmBusinessEmailVerification);
         document.querySelector("#sampleInboxBtn").addEventListener("click", addSampleInbox);
         const rejectionForm = document.querySelector("#rejectionReasonForm");
         rejectionForm.addEventListener("submit", submitRejectionReasonModal);
@@ -2263,7 +2277,8 @@
           plan: displayLabel(account.plan || "free"),
           accountStatus: displayLabel(account.status || "pending_review"),
           approvalEmail: profile.approvalEmail || user.email || "",
-          teamEmail: account.teamEmail || ""
+          teamEmail: account.teamEmail || "",
+          businessEmail: profile.businessEmail || account.businessEmail || ""
         });
         const selectedTheme = localStorage.getItem("dnols.theme") || account.preferences?.theme || "dark";
         setValues("#appearanceForm", {
@@ -2768,6 +2783,7 @@
       async function saveProfileForm(event) {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(event.target).entries());
+        if (!validateBusinessEmailFields([data.approvalEmail], "#profileStatusBox")) return;
         const score = computeReadiness(data, { ...profile, ...data });
         await saveOwnerProfile(user.uid, {
           ...data,
@@ -2913,12 +2929,31 @@
       async function saveSettingsForm(event) {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(event.target).entries());
+        if (!validateBusinessEmailFields([data.approvalEmail, data.teamEmail, data.businessEmail], "#settingsStatus")) return;
+        const normalizedBusinessEmail = validateBusinessEmail(data.businessEmail || "").email || "";
+        const businessEmailChanged = normalizedBusinessEmail && normalizedBusinessEmail !== (profile.businessEmail || account.businessEmail || "");
+        const verificationReset = businessEmailChanged
+          ? {
+              businessEmail: normalizedBusinessEmail,
+              businessDomain: "",
+              businessEmailVerified: false,
+              businessDomainVerified: false,
+              businessEmailVerifiedAtServer: "",
+              businessEmailVerifiedAtClient: "",
+              businessEmailVerificationToken: ""
+            }
+          : { businessEmail: normalizedBusinessEmail || profile.businessEmail || account.businessEmail || "" };
         await updateOwnerAccount(user.uid, {
           businessName: data.businessName,
-          teamEmail: data.teamEmail
+          teamEmail: data.teamEmail,
+          ...verificationReset
         });
-        await saveOwnerProfile(user.uid, { businessName: data.businessName, approvalEmail: data.approvalEmail });
-        showStatus("#settingsStatus", "Saved.");
+        await saveOwnerProfile(user.uid, {
+          businessName: data.businessName,
+          approvalEmail: data.approvalEmail,
+          ...verificationReset
+        });
+        showStatus("#settingsStatus", businessEmailChanged ? "Saved. Verify the new business email before publishing." : "Saved.");
         await reloadAll();
       }
 
@@ -2960,9 +2995,68 @@
         showStatus("#settingsStatus", "Reset sent.");
       }
 
+      async function requestBusinessEmailVerification() {
+        const email = getSettingsBusinessEmail();
+        const expectedDomain = profile.domain || "";
+        const validation = validateBusinessEmail(email);
+        if (!validation.valid) {
+          showErrorStatus("#settingsStatus", validation.message);
+          return;
+        }
+        const result = await callBusinessEmailEndpoint("start", {
+          ownerUid: user.uid,
+          email: validation.email,
+          expectedDomain
+        });
+        if (result.ok) {
+          businessEmailChallenge = result;
+          showStatus("#settingsStatus", `Verification code sent to ${result.businessEmail}.`);
+        } else {
+          showErrorStatus("#settingsStatus", result.message || "Verification email could not be sent.");
+        }
+      }
+
+      async function confirmBusinessEmailVerification() {
+        const form = document.querySelector("#settingsForm");
+        const email = getSettingsBusinessEmail();
+        const code = form.elements.namedItem("businessEmailCode").value.trim();
+        const validation = validateBusinessEmail(email);
+        if (!validation.valid) {
+          showErrorStatus("#settingsStatus", validation.message);
+          return;
+        }
+        if (!businessEmailChallenge?.challengeId) {
+          showErrorStatus("#settingsStatus", "Send a verification code first.");
+          return;
+        }
+        if (!code) {
+          showErrorStatus("#settingsStatus", "Enter the verification code.");
+          return;
+        }
+        const result = await callBusinessEmailEndpoint("verify", {
+          challengeId: businessEmailChallenge.challengeId,
+          email: validation.email,
+          code
+        });
+        if (result.ok) {
+          const fields = verifiedBusinessEmailFields(result);
+          await updateOwnerAccount(user.uid, fields);
+          await saveOwnerProfile(user.uid, fields);
+          await recordAudit("business_email_verified", "Business email verified", {
+            businessEmail: result.businessEmail,
+            businessDomain: result.businessDomain
+          });
+          showStatus("#settingsStatus", `Verified ${result.businessEmail}.`);
+          await reloadAll();
+        } else {
+          showErrorStatus("#settingsStatus", result.message || "Verification failed.");
+        }
+      }
+
       async function saveAgentConfigForm(event, sectionKey, statusSelector) {
         event.preventDefault();
         const data = normalizeAgentConfigSection(sectionKey, Object.fromEntries(new FormData(event.target).entries()));
+        if (sectionKey === "escalationRules" && !validateBusinessEmailFields([data.approvalEmail], statusSelector)) return;
         const agentConfig = {
           ...(profile.agentConfig || {}),
           status: profile.agentConfig?.status || "draft",
@@ -3133,6 +3227,7 @@
         if (!(config.capability?.name || source.capabilityName)) gaps.push("Capability name");
         if (!(config.capability?.description || source.capabilityDescription || source.summary)) gaps.push("Capability description or summary");
         if (!(config.escalationRules?.approvalEmail || source.approvalEmail)) gaps.push("Approval email");
+        if (!isProfileBusinessDomainVerified(source)) gaps.push("Verified business email for this domain");
         return gaps;
       }
 
@@ -3157,7 +3252,7 @@
           domain: source.domain || "",
           publicUrl: source.domain ? `https://${source.domain}` : "",
           tags: splitTags(capability.tags || source.tags),
-          trust: source.trust || "self-attested",
+          trust: isProfileBusinessDomainVerified(source) ? "business-email-verified" : source.trust || "self-attested",
           score: readinessScore(),
           capabilities: [
             {
@@ -3190,9 +3285,19 @@
           },
           contact: {
             approvalEmail: config.escalationRules?.approvalEmail || source.approvalEmail || "",
-            publicContact: source.contact || source.approvalEmail || ""
+            publicContact: source.contact || source.approvalEmail || "",
+            verifiedBusinessEmail: source.businessEmailVerified ? source.businessEmail || "" : ""
           }
         };
+      }
+
+      function isProfileBusinessDomainVerified(source = {}) {
+        return Boolean(
+          source.businessEmailVerified &&
+            source.businessDomainVerified &&
+            normalizeDomain(source.businessDomain) &&
+            normalizeDomain(source.businessDomain) === normalizeDomain(source.domain)
+        );
       }
 
       function normalizeAgentConfigSection(sectionKey, data) {
@@ -3314,6 +3419,58 @@
           model: null,
           fallbackReason: "backend_unavailable"
         };
+      }
+
+      async function callBusinessEmailEndpoint(action, body) {
+        const requestBody = JSON.stringify(body);
+        for (const baseUrl of BUSINESS_EMAIL_ENDPOINTS) {
+          try {
+            const response = await fetch(`${baseUrl}/${action}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: requestBody
+            });
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) throw new Error("Invalid response.");
+            const payload = await response.json();
+            if (!response.ok) return payload;
+            return payload;
+          } catch {
+            // Try the next configured backend.
+          }
+        }
+        return {
+          ok: false,
+          message: "Business email verification backend unavailable."
+        };
+      }
+
+      function getSettingsBusinessEmail() {
+        return document.querySelector("#settingsForm").elements.namedItem("businessEmail").value.trim();
+      }
+
+      function verifiedBusinessEmailFields(result) {
+        return {
+          businessEmail: result.businessEmail,
+          businessDomain: result.businessDomain,
+          businessEmailVerified: true,
+          businessDomainVerified: true,
+          businessEmailVerifiedAtServer: result.verifiedAtServer,
+          businessEmailVerifiedAtClient: new Date().toISOString(),
+          businessEmailVerificationToken: result.verificationToken
+        };
+      }
+
+      function validateBusinessEmailFields(values, statusSelector) {
+        const invalid = values
+          .filter((value) => String(value ?? "").trim())
+          .map(validateBusinessEmail)
+          .find((result) => !result.valid);
+        if (!invalid) return true;
+        showErrorStatus(statusSelector, invalid.message);
+        return false;
       }
 
       function compactAgentChatProfile(source = {}) {
@@ -3777,6 +3934,7 @@
         if (input.approvalEmail || merged.approvalEmail) score += 10;
         if (Number(input.maxDealValue || merged.maxDealValue) > 0) score += 10;
         if ((input.executionPreference || merged.executionPreference) === "optional-api" && (input.endpoint || merged.endpoint)) score += 5;
+        if (isProfileBusinessDomainVerified(merged)) score += 5;
         return Math.min(100, score);
       }
 
@@ -3807,6 +3965,16 @@
 
       function numberOrZero(value) {
         return Number(value) || 0;
+      }
+
+      function normalizeDomain(value) {
+        return String(value ?? "")
+          .trim()
+          .toLowerCase()
+          .replace(/^https?:\/\//, "")
+          .replace(/^www\./, "")
+          .split("/")[0]
+          .replace(/\.$/, "");
       }
 
       function displayLabel(value) {
@@ -3932,6 +4100,15 @@
       function escapeHtml(value) {
         return String(value ?? "")
           .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+    </script>
+  </body>
+</html>
+eAll("&", "&amp;")
           .replaceAll("<", "&lt;")
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")

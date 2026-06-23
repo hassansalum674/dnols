@@ -355,6 +355,15 @@
         font-size: 13px;
       }
 
+      .verification-box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #090b12;
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
       @media (max-width: 860px) {
         .container {
           width: min(100% - 24px, 560px);
@@ -540,6 +549,21 @@
                 <input name="domain" placeholder="acme.com" required />
               </label>
             </div>
+            <div class="verification-box">
+              <label>
+                Business email to verify
+                <input name="businessEmail" type="email" placeholder="owner@acme.com" required />
+              </label>
+              <div class="two-col">
+                <button class="btn btn-secondary" id="sendBusinessEmailCodeBtn" type="button">Send verification code</button>
+                <label>
+                  Verification code
+                  <input name="businessEmailCode" inputmode="numeric" maxlength="8" placeholder="6-digit code" />
+                </label>
+              </div>
+              <button class="btn" id="verifyBusinessEmailBtn" type="button">Verify business email</button>
+              <div id="businessEmailStatus" class="status"></div>
+            </div>
             <div class="two-col">
               <label>
                 Listing ID
@@ -710,6 +734,7 @@
         normalizeOnboardingProfile,
         validateDashboardProfile
       } from "./system-logic.js";
+      import { validateBusinessEmail } from "./js/business-email.js";
 
       const websiteForm = document.querySelector("#websiteForm");
       const websiteStatus = document.querySelector("#websiteStatus");
@@ -720,16 +745,25 @@
       const backBtn = document.querySelector("#backBtn");
       const nextBtn = document.querySelector("#nextBtn");
       const submitBtn = document.querySelector("#submitBtn");
+      const sendBusinessEmailCodeBtn = document.querySelector("#sendBusinessEmailCodeBtn");
+      const verifyBusinessEmailBtn = document.querySelector("#verifyBusinessEmailBtn");
+      const businessEmailStatus = document.querySelector("#businessEmailStatus");
       const review = document.querySelector("#review");
       const plans = document.querySelector("#plans");
+      const BUSINESS_EMAIL_ENDPOINTS = [
+        "https://dnols-83jj.onrender.com/api/business-email",
+        "/api/business-email"
+      ];
       let step = 0;
       let user;
+      let businessEmailChallenge = null;
+      let businessEmailVerification = null;
 
       boot();
 
       async function boot() {
         user = await requireUser();
-        listingStatus.innerHTML = `<p class="message ok">Signed in as ${escapeHtml(user.email)}. Complete this setup to create your business agent dashboard.</p>`;
+        listingStatus.innerHTML = `<p class="message ok">Signed in as ${escapeHtml(user.email)}. Verify a business email, then complete this setup.</p>`;
       }
 
       websiteForm.addEventListener("submit", async (event) => {
@@ -747,10 +781,22 @@
       });
 
       listingForm.addEventListener("input", renderReview);
+      sendBusinessEmailCodeBtn.addEventListener("click", sendBusinessEmailCode);
+      verifyBusinessEmailBtn.addEventListener("click", verifyBusinessEmailCode);
       listingForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         listingStatus.innerHTML = `<p class="message ok">Building and checking your listing...</p>`;
         const payload = Object.fromEntries(new FormData(listingForm).entries());
+        const emailValidation = validateBusinessProfileEmails(payload);
+        if (!emailValidation.valid) {
+          listingStatus.innerHTML = `<p class="message error">${escapeHtml(emailValidation.message)}</p>`;
+          return;
+        }
+        if (!isBusinessEmailVerifiedForDomain(payload.domain)) {
+          listingStatus.innerHTML = `<p class="message error">Verify a business email at ${escapeHtml(clean(payload.domain) || "your domain")} before submitting.</p>`;
+          renderStep(0);
+          return;
+        }
         const result = buildListing(payload);
         if (result.accepted) {
           submitBtn.disabled = true;
@@ -813,6 +859,110 @@
         });
       }
 
+      async function sendBusinessEmailCode() {
+        const businessEmail = clean(listingForm.elements.namedItem("businessEmail").value);
+        const expectedDomain = clean(listingForm.elements.namedItem("domain").value);
+        const validation = validateBusinessEmail(businessEmail);
+        if (!validation.valid) {
+          showBusinessEmailError(validation.message);
+          return;
+        }
+        sendBusinessEmailCodeBtn.disabled = true;
+        businessEmailStatus.innerHTML = `<p class="message ok">Sending verification code...</p>`;
+        try {
+          const result = await requestBusinessEmailEndpoint("start", {
+            ownerUid: user.uid,
+            email: businessEmail,
+            expectedDomain
+          });
+          businessEmailChallenge = result;
+          businessEmailVerification = null;
+          businessEmailStatus.innerHTML = `<p class="message ok">Verification code sent to ${escapeHtml(result.businessEmail)}.</p>`;
+        } catch (error) {
+          showBusinessEmailError(error.message || "Verification email could not be sent.");
+        } finally {
+          sendBusinessEmailCodeBtn.disabled = false;
+        }
+      }
+
+      async function verifyBusinessEmailCode() {
+        const businessEmail = clean(listingForm.elements.namedItem("businessEmail").value);
+        const code = clean(listingForm.elements.namedItem("businessEmailCode").value);
+        if (!businessEmailChallenge?.challengeId) {
+          showBusinessEmailError("Send a verification code first.");
+          return;
+        }
+        if (!code) {
+          showBusinessEmailError("Enter the verification code.");
+          return;
+        }
+        verifyBusinessEmailBtn.disabled = true;
+        businessEmailStatus.innerHTML = `<p class="message ok">Checking code...</p>`;
+        try {
+          const result = await requestBusinessEmailEndpoint("verify", {
+            challengeId: businessEmailChallenge.challengeId,
+            email: businessEmail,
+            code
+          });
+          businessEmailVerification = result;
+          await saveOwnerProfile(user.uid, verifiedBusinessEmailFields());
+          await updateOwnerAccount(user.uid, {
+            businessEmail: result.businessEmail,
+            businessDomain: result.businessDomain,
+            businessEmailVerified: true
+          });
+          businessEmailStatus.innerHTML = `<p class="message ok">Verified ${escapeHtml(result.businessEmail)} for ${escapeHtml(result.businessDomain)}.</p>`;
+        } catch (error) {
+          showBusinessEmailError(error.message || "Verification failed.");
+        } finally {
+          verifyBusinessEmailBtn.disabled = false;
+        }
+      }
+
+      async function requestBusinessEmailEndpoint(action, payload) {
+        let lastError = new Error("Business email verification backend is unavailable.");
+        for (const baseUrl of BUSINESS_EMAIL_ENDPOINTS) {
+          try {
+            const response = await fetch(`${baseUrl}/${action}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.ok) {
+              throw new Error(result.message || "Business email verification failed.");
+            }
+            return result;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError;
+      }
+
+      function verifiedBusinessEmailFields() {
+        return {
+          businessEmail: businessEmailVerification.businessEmail,
+          businessDomain: businessEmailVerification.businessDomain,
+          businessEmailVerified: true,
+          businessDomainVerified: true,
+          businessEmailVerifiedAtServer: businessEmailVerification.verifiedAtServer,
+          businessEmailVerifiedAtClient: new Date().toISOString(),
+          businessEmailVerificationToken: businessEmailVerification.verificationToken
+        };
+      }
+
+      function isBusinessEmailVerifiedForDomain(domain) {
+        return Boolean(
+          businessEmailVerification?.businessEmailVerified &&
+            normalizeDomain(businessEmailVerification.businessDomain) === normalizeDomain(domain)
+        );
+      }
+
+      function showBusinessEmailError(message) {
+        businessEmailStatus.innerHTML = `<p class="message error">${escapeHtml(message)}</p>`;
+      }
+
       function validateStep() {
         const invalid = [...panels[step].querySelectorAll("input, textarea, select")].find(
           (field) => !field.checkValidity()
@@ -821,7 +971,26 @@
           invalid.reportValidity();
           return false;
         }
+        const data = Object.fromEntries(new FormData(listingForm).entries());
+        const emailValidation = validateBusinessProfileEmails(data, step);
+        if (!emailValidation.valid) {
+          listingStatus.innerHTML = `<p class="message error">${escapeHtml(emailValidation.message)}</p>`;
+          return false;
+        }
         return true;
+      }
+
+      function validateBusinessProfileEmails(data, currentStep = null) {
+        const checks = [];
+        if (currentStep === null || currentStep === 0) {
+          checks.push(data.businessEmail);
+          if (data.contact) checks.push(data.contact);
+        }
+        if (currentStep === null || currentStep === 2) {
+          checks.push(data.approvalEmail);
+        }
+        const invalid = checks.map(validateBusinessEmail).find((result) => !result.valid);
+        return invalid || { valid: true };
       }
 
       function renderStep(nextStep) {
@@ -865,6 +1034,7 @@
         const values = {
           publisherName: manifest.publisher?.name,
           domain: manifest.publisher?.domain,
+          businessEmail: manifest.publisher?.contact,
           namespace: manifest.namespace,
           contact: manifest.publisher?.contact,
           category: manifest.agentProfile?.category,
@@ -950,6 +1120,7 @@
         if (!user) throw new Error("Please sign in before creating a business agent.");
         const businessName = clean(input.publisherName);
         const profilePayload = normalizeOnboardingProfile(input, result);
+        Object.assign(profilePayload, verifiedBusinessEmailFields());
         const profileValidation = validateDashboardProfile(profilePayload);
         if (!profileValidation.valid) {
           throw new Error(`Complete these required fields: ${profileValidation.gaps.join(", ")}`);
@@ -957,6 +1128,9 @@
         await updateOwnerAccount(user.uid, {
           businessName,
           teamEmail: clean(input.contact || input.approvalEmail),
+          businessEmail: businessEmailVerification.businessEmail,
+          businessDomain: businessEmailVerification.businessDomain,
+          businessEmailVerified: true,
           onboardingCompleted: true
         });
         await saveOwnerProfile(user.uid, profilePayload);
@@ -1149,6 +1323,10 @@
 
       function clean(value) {
         return String(value ?? "").trim();
+      }
+
+      function normalizeDomain(value) {
+        return clean(value).toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].replace(/\.$/, "");
       }
 
       function escapeHtml(value) {
