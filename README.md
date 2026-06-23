@@ -302,3 +302,4 @@ test/                         Node test coverage
 ## What Is Deliberately Not Included Yet
 
 This MVP does not implement DIDs, Verifiable Credentials, full payment reconciliation, enterprise middleware connectors, or real DNS automation. Those are later layers. The first milestone is proving that the standard, registry, validation loop, automated website draft generation, crawlable index, and checkout handoff are coherent and demoable.
+# new-dnols
