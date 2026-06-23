@@ -40,6 +40,7 @@ const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
   ".svg": "image/svg+xml"
 };
 
@@ -65,17 +66,18 @@ async function route(request, response) {
   if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
     response.writeHead(204, {
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400"
     });
     response.end();
     return;
   }
 
-  if (request.method === "GET" && url.pathname === "/health") {
+  if (request.method === "GET" && (url.pathname === "/health" || url.pathname === "/api/health")) {
     sendJson(response, 200, {
       ok: true,
-      service: "agent-discovery-mvp"
+      service: "dnols-api",
+      environment: process.env.NODE_ENV || "development"
     });
     return;
   }

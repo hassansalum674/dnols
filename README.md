@@ -40,6 +40,53 @@ Run tests:
 npm test
 ```
 
+## Render Backend
+
+Dnols uses Firebase Hosting for the static dashboard and a Render Node service for server-only API work. Render should use:
+
+```text
+Runtime: Node
+Root Directory: empty
+Build Command: npm install
+Start Command: npm start
+```
+
+The backend reads `process.env.PORT`, exposes health checks at:
+
+```http
+GET /health
+GET /api/health
+```
+
+Server-only features:
+
+```http
+POST /api/agent-chat
+POST /api/business-email/start
+POST /api/business-email/verify
+POST /api/email-verification/request
+POST /api/email-verification/confirm
+```
+
+Set these Render environment variables as needed:
+
+```bash
+NODE_ENV=production
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+ANTHROPIC_MAX_TOKENS=1000
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=...
+RESEND_FROM_NAME=Dnols
+BUSINESS_EMAIL_VERIFICATION_SECRET=...
+AT_API_KEY=...
+AT_USERNAME=sandbox
+AT_SENDER_ID=DNOLS
+AT_ENV=sandbox
+```
+
+Never put these values in `public/` files or commit them. The browser calls the backend; the backend calls Claude, Resend, and Africa's Talking.
+
 ## Product Surfaces
 
 ### Guided Business Onboarding

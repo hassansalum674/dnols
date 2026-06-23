@@ -112,6 +112,8 @@ firebase deploy --only hosting,firestore:rules --project dnols-2a394
 
 This deployment works on the Firebase Spark/free plan because it does not deploy Firebase Functions.
 
+Live backend APIs now run on Render, not Firebase Functions. Keep Firebase Hosting for the public UI/dashboard and use the Render service for Claude chat, business email verification, and server-side notification providers.
+
 The Hosting deploy target is the site `dnols-2a394` because `firebase.json` contains:
 
 ```json
@@ -152,15 +154,34 @@ For the Spark/free version, publication is an admin step:
 
 Do not put private floor prices, API keys, internal notes, or secrets in `data/public-profiles.json`.
 
-## What Waits Until Blaze
+## Render Backend
 
-Firebase Functions require the Blaze/pay-as-you-go plan, so these live backend features are paused:
+Use Render for backend endpoints that need secrets or live server execution:
 
-- `/api/generate-from-website`
-- `/api/plans`
-- `/api/checkout`
-- `/api/manifests`
-- live agent execution endpoints
+```text
+Build Command: npm install
+Start Command: npm start
+Health Check: /api/health
+```
+
+Required or optional Render environment variables:
+
+```bash
+NODE_ENV=production
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+ANTHROPIC_MAX_TOKENS=1000
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=...
+RESEND_FROM_NAME=Dnols
+BUSINESS_EMAIL_VERIFICATION_SECRET=...
+AT_API_KEY=...
+AT_USERNAME=sandbox
+AT_SENDER_ID=DNOLS
+AT_ENV=sandbox
+```
+
+Do not expose these values in Firebase Hosting or any `public/` file.
 
 ## Stripe Payment Links
 
