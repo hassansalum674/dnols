@@ -24,6 +24,14 @@ const ROOT = process.cwd();
 const MANIFEST_DIR = join(ROOT, "data", "manifests");
 const PUBLIC_DIR = join(ROOT, "public");
 const SCHEMA_DIR = join(ROOT, "schemas");
+const ALLOWED_CORS_ORIGINS = new Set([
+  "https://dnols-2a394.web.app",
+  "https://dnols-2a394.firebaseapp.com",
+  "https://dnols-83jj.onrender.com",
+  "https://dnols.com",
+  "https://www.dnols.com"
+]);
+const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -34,6 +42,7 @@ const MIME_TYPES = {
 };
 
 createServer(async (request, response) => {
+  applyCorsHeaders(request, response);
   try {
     await route(request, response);
   } catch (error) {
@@ -50,6 +59,16 @@ createServer(async (request, response) => {
 async function route(request, response) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
   const origin = getOrigin(request);
+
+  if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+    response.writeHead(204, {
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Max-Age": "86400"
+    });
+    response.end();
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/health") {
     sendJson(response, 200, {
@@ -379,8 +398,7 @@ async function serveStaticFromDirectory(pathname, rootDirectory, response) {
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*"
+    "Content-Type": "application/json; charset=utf-8"
   });
   response.end(JSON.stringify(payload, null, 2));
 }
@@ -400,4 +418,17 @@ function getOrigin(request) {
   const host = request.headers["x-forwarded-host"] ?? request.headers.host;
   const protocol = request.headers["x-forwarded-proto"] ?? "http";
   return `${protocol}://${host}`;
+}
+
+function applyCorsHeaders(request, response) {
+  const requestOrigin = request.headers.origin;
+  if (!isAllowedCorsOrigin(requestOrigin)) return;
+
+  response.setHeader("Access-Control-Allow-Origin", requestOrigin);
+  response.setHeader("Vary", "Origin");
+}
+
+function isAllowedCorsOrigin(origin) {
+  if (!origin) return false;
+  return ALLOWED_CORS_ORIGINS.has(origin) || LOCAL_CORS_ORIGIN_PATTERN.test(origin);
 }

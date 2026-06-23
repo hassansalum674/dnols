@@ -2006,6 +2006,10 @@
       } from "./system-logic.js";
       import { mobileSectionIds, routeIndex, sections } from "./js/dashboard/navigation.js";
 
+      const OWNER_AGENT_CHAT_ENDPOINTS = [
+        "https://dnols-83jj.onrender.com/api/agent-chat",
+        "/api/agent-chat"
+      ];
       const mobileQuery = window.matchMedia("(max-width: 980px)");
 
       let user;
@@ -3269,41 +3273,47 @@
       }
 
       async function requestOwnerAgentChat(input, fallbackChat) {
-        try {
-          const response = await fetch("/api/agent-chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              userContext: {
-                uid: user.uid,
-                email: user.email || ""
+        const requestBody = JSON.stringify({
+          userContext: {
+            uid: user.uid,
+            email: user.email || ""
+          },
+          profile: compactAgentChatProfile(profile),
+          agentConfig: compactAgentChatConfig(profile.agentConfig || {}),
+          input: {
+            message: input.message || ""
+          }
+        });
+
+        for (const endpoint of OWNER_AGENT_CHAT_ENDPOINTS) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
               },
-              profile: compactAgentChatProfile(profile),
-              agentConfig: compactAgentChatConfig(profile.agentConfig || {}),
-              input: {
-                message: input.message || ""
-              }
-            })
-          });
-          const contentType = response.headers.get("content-type") || "";
-          if (!response.ok || !contentType.includes("application/json")) {
-            throw new Error("Agent chat backend unavailable.");
+              body: requestBody
+            });
+            const contentType = response.headers.get("content-type") || "";
+            if (!response.ok || !contentType.includes("application/json")) {
+              throw new Error("Agent chat backend unavailable.");
+            }
+            const payload = await response.json();
+            if (!payload.ok || !payload.chat?.agentResponse) {
+              throw new Error("Agent chat backend returned an invalid response.");
+            }
+            return payload.chat;
+          } catch {
+            // Try the next backend before falling back to deterministic browser logic.
           }
-          const payload = await response.json();
-          if (!payload.ok || !payload.chat?.agentResponse) {
-            throw new Error("Agent chat backend returned an invalid response.");
-          }
-          return payload.chat;
-        } catch {
-          return {
-            ...fallbackChat,
-            provider: "deterministic",
-            model: null,
-            fallbackReason: "backend_unavailable"
-          };
         }
+
+        return {
+          ...fallbackChat,
+          provider: "deterministic",
+          model: null,
+          fallbackReason: "backend_unavailable"
+        };
       }
 
       function compactAgentChatProfile(source = {}) {
