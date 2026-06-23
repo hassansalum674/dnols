@@ -18,10 +18,6 @@ import { buildPublicRegistryIndex, buildRobotsTxt, buildSitemap } from "./servic
 import { createCheckout, listPlans } from "./services/payments.js";
 import { executeCapability } from "./services/execution.js";
 import { buildOwnerAgentChat, validateAgentChatContext } from "./services/agent-chat.js";
-import {
-  confirmEmailVerification,
-  requestEmailVerification
-} from "./services/email-verification.js";
 import { createBusinessEmailVerifier } from "./services/business-email.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -200,19 +196,23 @@ async function route(request, response) {
 
   if (request.method === "POST" && url.pathname === "/api/email-verification/request") {
     const body = await readRequestJson(request);
-    const result = await requestEmailVerification({ email: body.email });
-    sendJson(response, result.statusCode, result);
+    const result = await businessEmailVerifier.startVerification({
+      ownerUid: body.ownerUid,
+      email: body.email,
+      expectedDomain: body.expectedDomain
+    });
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
     return;
   }
 
   if (request.method === "POST" && url.pathname === "/api/email-verification/confirm") {
     const body = await readRequestJson(request);
-    const result = confirmEmailVerification({
+    const result = businessEmailVerifier.verifyCode({
+      challengeId: body.challengeId || body.token,
       email: body.email,
-      code: body.code,
-      token: body.token
+      code: body.code
     });
-    sendJson(response, result.statusCode, result);
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
     return;
   }
 

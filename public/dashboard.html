@@ -2391,6 +2391,7 @@
         renderAgentChat();
         renderAgentRuns();
         renderPublishingPanel();
+        renderBusinessEmailStatus();
         renderAnalytics();
         const activeSection = document.querySelector(".section.active")?.dataset.section;
         if (activeSection === "overview") showSection("overview");
@@ -2407,6 +2408,18 @@
         document.querySelector("#submitReviewBtn").disabled = gaps.length > 0;
         document.querySelector("#pausePublishBtn").disabled = registryStatus === REGISTRY_STATUS.NOT_PUBLISHED || registryStatus === REGISTRY_STATUS.PAUSED;
         document.querySelector("#resumePublishBtn").disabled = registryStatus !== REGISTRY_STATUS.PAUSED;
+      }
+
+      function renderBusinessEmailStatus() {
+        const status = document.querySelector("#settingsStatus");
+        if (!status) return;
+        if (isProfileBusinessDomainVerified(profile)) {
+          status.innerHTML = `<p class="message ok">Business email verified: ${escapeHtml(profile.businessEmail || profile.businessDomain)}.</p>`;
+        } else if (profile.businessEmail || account.businessEmail) {
+          status.innerHTML = `<p class="message">Business email saved but not verified for ${escapeHtml(profile.domain || "this domain")}.</p>`;
+        } else {
+          status.innerHTML = `<p class="message">Business email required before public publishing.</p>`;
+        }
       }
 
       function renderAgentRuns() {
