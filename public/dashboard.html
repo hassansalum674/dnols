@@ -3490,10 +3490,29 @@
           event.target.reset();
           renderAgentChat();
           renderAgentRuns();
-          showStatus("#agentChatStatus", chat.fallbackReason ? `Message sent. Backend fallback: ${displayLabel(chat.fallbackReason)}.` : "Message sent.");
+          const notice = agentAssistantNotice(chat.fallbackReason);
+          if (notice) {
+            showStatus("#agentChatStatus", notice);
+          } else {
+            showStatus("#agentChatStatus", "Message sent.");
+          }
         } catch (error) {
           showErrorStatus("#agentChatStatus", `Message could not be shown: ${error.message}`);
         }
+      }
+
+      function agentAssistantNotice(fallbackReason) {
+        if (!fallbackReason) return "";
+        if (fallbackReason === "anthropic_request_rejected" || fallbackReason === "anthropic_rate_limited") {
+          return "Message sent. The AI assistant is paused (billing required); you are seeing guided replies for now.";
+        }
+        if (fallbackReason === "anthropic_auth_failed") {
+          return "Message sent. The AI assistant is paused (sign-in/key issue); you are seeing guided replies for now.";
+        }
+        if (fallbackReason === "anthropic_model_or_endpoint_not_found") {
+          return "Message sent. The AI assistant is paused (model unavailable); you are seeing guided replies for now.";
+        }
+        return "Message sent. The AI assistant is temporarily unavailable; you are seeing guided replies for now.";
       }
 
       async function clearOwnerAgentChat() {
