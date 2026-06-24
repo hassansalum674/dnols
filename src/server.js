@@ -26,11 +26,15 @@ import {
 } from "./services/agent-chat.js";
 import { createBusinessEmailVerifier } from "./services/business-email.js";
 import {
-  handleInboundReply,
+  processInboundSms,
   sendDealEvent,
-  sendDealNotifications
+  sendDealNotifications,
+  startDealAndNotify
 } from "./services/sms-notifier.js";
-import { DEAL_ROLE } from "./services/deal-flow.js";
+import { createDealStore } from "./services/deal-store.js";
+import { runDealReminders, startDealReminderInterval } from "./services/deal-reminders.js";
+import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
+import { createPasswordResetVerifier } from "./services/password-reset.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const ROOT = process.cwd();
@@ -46,7 +50,10 @@ const ALLOWED_CORS_ORIGINS = new Set([
 ]);
 const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const businessEmailVerifier = createBusinessEmailVerifier();
+const passwordResetVerifier = createPasswordResetVerifier();
 const API_VERSION = "agent-groq-primary-2026-06-24";
+const dealStore = createDealStore();
+startDealReminderInterval({ store: dealStore });
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -283,7 +290,9 @@ async function route(request, response) {
     const deal = body.deal || {};
     try {
       if (body.event) {
-        const result = await sendDealEvent({ deal, event: body.event });
+        const result = body.event === DEAL_EVENT.NEW_DEAL
+          ? await startDealAndNotify({ deal, store: dealStore })
+          : await sendDealEvent({ deal, event: body.event, store: dealStore });
         sendJson(response, 200, { ok: true, ...result });
         return;
       }
@@ -296,8 +305,9 @@ async function route(request, response) {
         sendJson(response, 400, { ok: false, error: "no_notifications", message: "Provide event, type, or notifications." });
         return;
       }
-      const results = await sendDealNotifications({ deal, notifications });
-      sendJson(response, 200, { ok: true, notifications, results });
+      const persistedDeal = await persistSmsNotifyDeal(deal, notifications);
+      const results = await sendDealNotifications({ deal: persistedDeal, notifications });
+      sendJson(response, 200, { ok: true, deal: persistedDeal, notifications, results });
     } catch (error) {
       sendJson(response, 422, {
         ok: false,
@@ -309,22 +319,31 @@ async function route(request, response) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/sms/webhook") {
-    const body = await readRequestBody(request);
-    const text = body.text ?? body.message ?? "";
-    const from = body.from ?? body.sender ?? "";
-    const deal = body.deal || (from ? { dealId: body.dealId || body.linkId || "", sender: { phone: from } } : {});
-    const replierRole = body.replierRole === DEAL_ROLE.BUYER ? DEAL_ROLE.BUYER : DEAL_ROLE.SELLER;
-    if (body.deal && from && !dealHasRole(body.deal, replierRole)) {
-      deal[replierRole] = { ...(body.deal[replierRole] || {}), phone: from };
-    }
+    const payload = await readRequestBody(request);
     try {
-      const result = await handleInboundReply({ deal, text, replierRole });
-      sendJson(response, 200, { ok: true, from, ...result });
+      const result = await processInboundSms({ payload, store: dealStore });
+      sendJson(response, 200, result);
     } catch (error) {
       sendJson(response, 200, {
         ok: false,
         error: "sms_webhook_failed",
         message: error instanceof Error ? error.message : "Could not process inbound SMS."
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sms/run-reminders") {
+    const body = await readRequestBody(request);
+    const windowMs = Number(body.windowMs || 0) || undefined;
+    try {
+      const result = await runDealReminders({ store: dealStore, windowMs });
+      sendJson(response, 200, { ok: true, ...result });
+    } catch (error) {
+      sendJson(response, 422, {
+        ok: false,
+        error: "sms_reminders_failed",
+        message: error instanceof Error ? error.message : "Could not run SMS reminders."
       });
     }
     return;
@@ -359,6 +378,27 @@ async function route(request, response) {
     const body = await readRequestJson(request);
     const result = businessEmailVerifier.verifyCode({
       challengeId: body.challengeId || body.token,
+      email: body.email,
+      code: body.code
+    });
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/password-reset/start") {
+    const body = await readRequestJson(request);
+    const result = await passwordResetVerifier.startReset({
+      email: body.email,
+      ip: clientIp(request)
+    });
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/password-reset/verify") {
+    const body = await readRequestJson(request);
+    const result = passwordResetVerifier.verifyCode({
+      challengeId: body.challengeId,
       email: body.email,
       code: body.code
     });
@@ -553,6 +593,18 @@ async function findManifest(namespace) {
   }
 }
 
+async function persistSmsNotifyDeal(deal, notifications = []) {
+  const dealId = deal.dealId || deal.id || deal.ref;
+  if (!dealId) return deal;
+  const existing = await dealStore.getDeal(dealId);
+  const saved = existing ? await dealStore.updateDeal(dealId, deal) : await dealStore.saveDeal(deal);
+  if (!notifications.length) return saved;
+  return dealStore.updateDeal(dealId, {
+    lastNotifiedAt: new Date().toISOString(),
+    remindedAt: ""
+  });
+}
+
 async function readRequestJson(request) {
   const chunks = [];
   for await (const chunk of request) {
@@ -581,11 +633,6 @@ async function readRequestBody(request) {
   }
 
   return Object.fromEntries(new URLSearchParams(raw));
-}
-
-function dealHasRole(deal, role) {
-  const contact = deal?.[role];
-  return Boolean(contact && contact.phone);
 }
 
 async function serveStaticFromDirectory(pathname, rootDirectory, response) {
@@ -631,6 +678,10 @@ function getOrigin(request) {
   const host = request.headers["x-forwarded-host"] ?? request.headers.host;
   const protocol = request.headers["x-forwarded-proto"] ?? "http";
   return `${protocol}://${host}`;
+}
+
+function clientIp(request) {
+  return request.headers["x-forwarded-for"] ?? request.socket?.remoteAddress ?? "";
 }
 
 function applyCorsHeaders(request, response) {

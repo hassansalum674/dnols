@@ -90,9 +90,56 @@ AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
+# Optional persisted SMS deal store. Without this, the service uses memory.
+DEAL_STORE_BACKEND=firestore
+FIREBASE_PROJECT_ID=dnols-2a394
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
+# Optional in-process reminder loop. Prefer Render Cron for production.
+SMS_REMINDER_INTERVAL_ENABLED=false
+SMS_REMINDER_INTERVAL_MS=900000
 ```
 
 Never put these values in `public/` files or commit them. The browser calls the backend; the backend calls Claude, Resend, and Africa's Talking.
+
+## SMS Deal Notifications
+
+SMS notifications run on the Render backend, not Firebase Hosting. All messages use sender ID `DNOLS`, plain ASCII text, and templates capped at 160 characters.
+
+Configure Africa's Talking inbound SMS callback to:
+
+```text
+https://<render-service-host>/api/sms/webhook
+```
+
+Africa's Talking sends `application/x-www-form-urlencoded` fields such as `from`, `to`, `text`, `linkId`, `id`, and `date`. The backend resolves `linkId` or `dealId` first, then falls back to the sender phone index. Replies are processed by phone role: buyer phones can send buyer actions such as `PAID`, and seller phones can send seller actions such as `YES`, `NO`, or `COUNTER`.
+
+Server SMS endpoints:
+
+```http
+POST /api/sms/notify
+POST /api/sms/webhook
+POST /api/sms/run-reminders
+```
+
+Start and persist a new deal, then send the seller the first request SMS:
+
+```json
+{
+  "event": "new_deal",
+  "deal": {
+    "dealId": "DL-1001",
+    "buyer": { "name": "Buyer", "phone": "+255712345678" },
+    "seller": { "name": "Seller", "phone": "+255798765432" },
+    "serviceDescription": "Freight Dar to Nairobi",
+    "amount": 1500,
+    "deadline": "2026-07-30"
+  }
+}
+```
+
+`POST /api/sms/run-reminders` scans active deals and sends the 2-hour reminder SMS to deals that have `lastNotifiedAt` older than the reminder window and no `remindedAt`. Use Render Cron or another external scheduler to call it. For development only, set `SMS_REMINDER_INTERVAL_ENABLED=true` to run the interval in-process.
+
+The default deal store is in-memory. For production persistence, install/configure `firebase-admin` in the Render service environment and set `DEAL_STORE_BACKEND=firestore` with `FIREBASE_PROJECT_ID` or `GOOGLE_APPLICATION_CREDENTIALS`. The Admin SDK writes server-only `deals` and `dealPhoneIndex` collections; Firestore client rules deny direct browser access.
 
 ## Product Surfaces
 

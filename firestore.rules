@@ -22,6 +22,14 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    match /deals/{dealId} {
+      allow read, write: if false;
+    }
+
+    match /dealPhoneIndex/{phoneIndexId} {
+      allow read, write: if false;
+    }
+
     match /businessAccounts/{ownerUid} {
       allow read: if isOwner(ownerUid);
       allow create: if isOwner(ownerUid)

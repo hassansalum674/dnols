@@ -186,9 +186,38 @@ AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
+# Optional Firestore-backed SMS deal state for the Render service.
+DEAL_STORE_BACKEND=firestore
+FIREBASE_PROJECT_ID=dnols-2a394
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
+# Prefer Render Cron for production reminder runs.
+SMS_REMINDER_INTERVAL_ENABLED=false
+SMS_REMINDER_INTERVAL_MS=900000
 ```
 
 Do not expose these values in Firebase Hosting or any `public/` file.
+
+### SMS Notification Operations
+
+Africa's Talking inbound SMS callback should point to the Render service:
+
+```text
+https://<render-service-host>/api/sms/webhook
+```
+
+The webhook accepts Africa's Talking form fields: `from`, `to`, `text`, `linkId`, `id`, and `date`. The backend resolves the deal by `linkId` or `dealId`, then by sender phone, and derives the reply role from the stored buyer or seller phone number.
+
+SMS backend endpoints:
+
+```http
+POST /api/sms/notify
+POST /api/sms/webhook
+POST /api/sms/run-reminders
+```
+
+Use `POST /api/sms/notify` with `event: "new_deal"` to persist a deal and send the initial seller request. Use `POST /api/sms/run-reminders` from Render Cron, or another scheduler, to send the 2-hour reminder SMS for active deals that have not yet been reminded. Keep in-process reminders disabled in production unless there is only one backend instance.
+
+Firestore rules deploy server-only `deals` and `dealPhoneIndex` collections with client `read` and `write` denied. The Render backend may still write them through `firebase-admin`, because Admin SDK access bypasses Firestore Security Rules.
 
 ## Stripe Payment Links
 

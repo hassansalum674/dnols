@@ -1,12 +1,14 @@
 import { createSmsService } from "./sms.js";
 import {
   SMS_MAX_LENGTH,
+  SMS_TYPE,
   feeAmount,
   renderSmsTemplate,
   sanitizeSmsText
 } from "./sms-templates.js";
 import { parseSmsReply } from "./sms-replies.js";
-import { DEAL_ROLE, advanceDealOnReply, planDealEvent } from "./deal-flow.js";
+import { DEAL_EVENT, DEAL_ROLE, advanceDealOnReply, planDealEvent } from "./deal-flow.js";
+import { createDealStore, normalizePhone } from "./deal-store.js";
 
 export function buildDealTemplateData(deal = {}) {
   const buyer = deal.buyer || {};
@@ -77,10 +79,52 @@ export async function sendDealNotifications({
   return results;
 }
 
-export async function sendDealEvent({ deal = {}, event, env = process.env, fetchImpl = globalThis.fetch, smsService } = {}) {
+export async function startDealAndNotify({
+  deal = {},
+  store = createDealStore(),
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  smsService,
+  now = () => new Date()
+} = {}) {
+  const savedDeal = await store.saveDeal({
+    ...deal,
+    status: "initiated",
+    remindedAt: ""
+  });
+  return sendDealEvent({
+    deal: savedDeal,
+    event: DEAL_EVENT.NEW_DEAL,
+    store,
+    env,
+    fetchImpl,
+    smsService,
+    now
+  });
+}
+
+export async function sendDealEvent({
+  deal = {},
+  event,
+  store,
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  smsService,
+  now = () => new Date()
+} = {}) {
   const plan = planDealEvent(event);
-  const results = await sendDealNotifications({ deal, notifications: plan.notifications, env, fetchImpl, smsService });
-  return { event, nextStatus: plan.nextStatus, notifications: plan.notifications, results };
+  const activeDeal = store ? await upsertDealForNotification({ deal, store }) : deal;
+  const results = await sendDealNotifications({ deal: activeDeal, notifications: plan.notifications, env, fetchImpl, smsService });
+  const persistedDeal = store
+    ? await persistNotificationState({
+        deal: activeDeal,
+        store,
+        nextStatus: plan.nextStatus,
+        notifications: plan.notifications,
+        now
+      })
+    : activeDeal;
+  return { event, nextStatus: plan.nextStatus, deal: persistedDeal, notifications: plan.notifications, results };
 }
 
 export async function handleInboundReply({
@@ -102,4 +146,132 @@ export async function handleInboundReply({
     notifications: plan.notifications,
     results
   };
+}
+
+export async function processInboundSms({
+  payload = {},
+  store = createDealStore(),
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  smsService,
+  now = () => new Date()
+} = {}) {
+  const inbound = normalizeInboundSmsPayload(payload);
+  const deal = await resolveInboundDeal({ payload: inbound, store });
+  const replierRole = deal ? resolveReplierRoleByPhone(deal, inbound.from) : null;
+
+  if (!deal || !replierRole) {
+    const results = await sendDealNotifications({
+      deal: {
+        dealId: inbound.dealId || "PENDING",
+        seller: { phone: inbound.from }
+      },
+      notifications: [{ type: SMS_TYPE.NOT_UNDERSTOOD, role: DEAL_ROLE.SELLER }],
+      env,
+      fetchImpl,
+      smsService
+    });
+    return {
+      ok: false,
+      resolved: false,
+      from: inbound.from,
+      dealId: inbound.dealId,
+      error: "unknown_sender",
+      notifications: [{ type: SMS_TYPE.NOT_UNDERSTOOD, role: DEAL_ROLE.SELLER }],
+      results
+    };
+  }
+
+  const result = await handleInboundReply({
+    deal,
+    text: inbound.text,
+    replierRole,
+    env,
+    fetchImpl,
+    smsService
+  });
+  const updatedDeal = await persistInboundState({
+    deal,
+    store,
+    nextStatus: result.nextStatus,
+    notifications: result.notifications,
+    inbound,
+    now
+  });
+
+  return {
+    ok: true,
+    resolved: true,
+    from: inbound.from,
+    dealId: deal.dealId,
+    replierRole,
+    deal: updatedDeal,
+    ...result
+  };
+}
+
+export function normalizeInboundSmsPayload(payload = {}) {
+  return {
+    from: clean(payload.from || payload.sender || payload.msisdn),
+    to: clean(payload.to || payload.recipient),
+    text: clean(payload.text || payload.message),
+    dealId: clean(payload.dealId || payload.linkId || payload.ref),
+    linkId: clean(payload.linkId),
+    providerMessageId: clean(payload.id || payload.messageId),
+    date: clean(payload.date)
+  };
+}
+
+export function resolveReplierRoleByPhone(deal = {}, phone) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  if (normalizePhone(deal.buyer?.phone || deal.buyerPhone) === normalized) return DEAL_ROLE.BUYER;
+  if (normalizePhone(deal.seller?.phone || deal.sellerPhone) === normalized) return DEAL_ROLE.SELLER;
+  return null;
+}
+
+async function resolveInboundDeal({ payload, store }) {
+  if (payload.dealId) {
+    const byId = await store.getDeal(payload.dealId);
+    if (byId) return byId;
+  }
+  return payload.from ? store.findDealByPhone(payload.from) : null;
+}
+
+async function upsertDealForNotification({ deal, store }) {
+  const dealId = deal.dealId || deal.id || deal.ref;
+  if (!dealId) return deal;
+  const existing = await store.getDeal(dealId);
+  if (existing) return store.updateDeal(dealId, deal);
+  return store.saveDeal(deal);
+}
+
+async function persistNotificationState({ deal, store, nextStatus, notifications, now }) {
+  const dealId = deal.dealId || deal.id || deal.ref;
+  if (!dealId) return deal;
+  const patch = {};
+  if (nextStatus) patch.status = nextStatus;
+  if (notifications.length) {
+    patch.lastNotifiedAt = now().toISOString();
+    patch.remindedAt = "";
+  }
+  const updated = await store.updateDeal(dealId, patch);
+  return updated || deal;
+}
+
+async function persistInboundState({ deal, store, nextStatus, notifications, inbound, now }) {
+  const timestamp = now().toISOString();
+  const patch = {
+    lastInboundAt: timestamp,
+    inboundProviderMessageId: inbound.providerMessageId,
+    remindedAt: "",
+    lastNotifiedAt: notifications.length ? timestamp : ""
+  };
+  if (nextStatus) patch.status = nextStatus;
+  const updated = await store.updateDeal(deal.dealId, patch);
+  return updated || deal;
+}
+
+function clean(value) {
+  return String(value ?? "").trim();
 }
