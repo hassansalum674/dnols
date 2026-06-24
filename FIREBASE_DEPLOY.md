@@ -168,6 +168,13 @@ Required or optional Render environment variables:
 
 ```bash
 NODE_ENV=production
+# Primary low-cost AI provider (preferred). Used first when set.
+GROQ_API_KEY=...
+GROQ_MODEL=llama-3.3-70b-versatile
+# Second AI provider. Used only if Groq is unset or fails.
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash-lite
+# Final fallback AI provider. Used only if Groq and Gemini are unset or fail.
 ANTHROPIC_API_KEY=...
 ANTHROPIC_MODEL=claude-3-5-haiku-20241022
 ANTHROPIC_MAX_TOKENS=1000

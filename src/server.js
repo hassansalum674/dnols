@@ -40,7 +40,7 @@ const ALLOWED_CORS_ORIGINS = new Set([
 ]);
 const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const businessEmailVerifier = createBusinessEmailVerifier();
-const API_VERSION = "agent-claude-flows-2026-06-24";
+const API_VERSION = "agent-gemini-primary-2026-06-24";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",

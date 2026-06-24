@@ -1,11 +1,17 @@
 import {
+  buildAgentIdentity,
   buildNegotiationDraft,
   buildOwnerAgentChatResponse,
-  evaluateDealRequest
+  evaluateDealRequest,
+  exceedsAutoApprovalLimit
 } from "../../public/system-logic.js";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 const FALLBACK_MODEL_CHAIN = ["claude-3-5-haiku-20241022", "claude-3-haiku-20240307"];
 const DEFAULT_MAX_TOKENS = 350;
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -75,62 +81,47 @@ export async function buildOwnerAgentChat({
     return withProvider(fallback, "deterministic", null, validation.error);
   }
 
-  const apiKey = clean(env.ANTHROPIC_API_KEY);
-  if (!apiKey || typeof fetchImpl !== "function") {
-    return withProvider(fallback, "deterministic", null, "anthropic_not_configured");
+  const ai = await requestAgentJson({
+    env,
+    fetchImpl,
+    timeoutMs,
+    temperature: 0.2,
+    system: [
+      "You are this specific business's own agent, rebuilt fresh from the provided businessContext.",
+      "Adopt the identity in businessContext.agent: speak as businessContext.agent.name with the businessContext.agent.personality tone, and honor that business's specialties, rules, currency, and payment terms.",
+      "Use only the provided compact business context.",
+      "Never request or reveal secrets, API keys, private minimum prices, or hidden internal rules.",
+      "Final execution always requires human owner approval, and any deal above businessContext.agent.autoApprovalLimit must be flagged for human approval.",
+      "Return only JSON with: topic, agentResponse, nextActions."
+    ].join(" "),
+    payload: buildPromptPayload(profile, agentConfig, input, fallback)
+  });
+
+  if (!ai.ok) {
+    return withProvider(fallback, "deterministic", ai.model, ai.fallbackReason, ai.fallbackDetail);
   }
 
-  const model = clean(env.ANTHROPIC_MODEL) || DEFAULT_MODEL;
-  const maxTokens = clampNumber(env.ANTHROPIC_MAX_TOKENS, 100, 800, DEFAULT_MAX_TOKENS);
-
-  try {
-    const claude = await requestClaudeJson({
-      env,
-      fetchImpl,
-      timeoutMs,
-      model,
-      maxTokens,
-      temperature: 0.2,
-      system: [
-        "You are a concise owner-assistance agent for a B2B dashboard.",
-        "Use only the provided compact business context.",
-        "Never request or reveal secrets, API keys, private minimum prices, or hidden internal rules.",
-        "Final execution always requires human owner approval.",
-        "Return only JSON with: topic, agentResponse, nextActions."
-      ].join(" "),
-      payload: buildPromptPayload(profile, agentConfig, input, fallback)
-    });
-    if (!claude.ok) {
-      return withProvider(fallback, "deterministic", claude.model || model, claude.fallbackReason, claude.fallbackDetail);
-    }
-    const parsed = claude.parsed;
-    if (!parsed) {
-      return withProvider(fallback, "deterministic", model, "anthropic_invalid_response");
-    }
-
-    return withProvider(
-      {
-        ...fallback,
-        topic: ALLOWED_TOPICS.has(parsed.topic) ? parsed.topic : fallback.topic,
-        agentResponse: clip(parsed.agentResponse, 700) || fallback.agentResponse,
-        draftResponse: clip(parsed.agentResponse, 700) || fallback.draftResponse,
-        nextActions: normalizeNextActions(parsed.nextActions, fallback.nextActions),
-        messages: [
-          fallback.messages[0],
-          {
-            role: "agent",
-            body: clip(parsed.agentResponse, 700) || fallback.agentResponse,
-            nextActions: normalizeNextActions(parsed.nextActions, fallback.nextActions)
-          }
-        ]
-      },
-      "anthropic",
-      claude.model || model,
-      null
-    );
-  } catch (error) {
-    return withProvider(fallback, "deterministic", model, classifyAnthropicError(error));
-  }
+  const parsed = ai.parsed || {};
+  return withProvider(
+    {
+      ...fallback,
+      topic: ALLOWED_TOPICS.has(parsed.topic) ? parsed.topic : fallback.topic,
+      agentResponse: clip(parsed.agentResponse, 700) || fallback.agentResponse,
+      draftResponse: clip(parsed.agentResponse, 700) || fallback.draftResponse,
+      nextActions: normalizeNextActions(parsed.nextActions, fallback.nextActions),
+      messages: [
+        fallback.messages[0],
+        {
+          role: "agent",
+          body: clip(parsed.agentResponse, 700) || fallback.agentResponse,
+          nextActions: normalizeNextActions(parsed.nextActions, fallback.nextActions)
+        }
+      ]
+    },
+    ai.provider,
+    ai.model,
+    null
+  );
 }
 
 export async function buildAgentNegotiationDraft({
@@ -145,12 +136,12 @@ export async function buildAgentNegotiationDraft({
   const fallback = withProvider(buildNegotiationDraft(profile, agentConfig, input), "deterministic", null, null);
   const validation = validateAgentChatContext({ profile, agentConfig, userContext });
   if (!validation.valid) return withProvider(fallback, "deterministic", null, validation.error);
-  const claude = await requestClaudeJsonForFeature({
+  const ai = await requestAgentJson({
     env,
     fetchImpl,
     timeoutMs,
-    fallback,
     purpose: "negotiation_draft",
+    system: featureSystemPrompt("negotiation_draft"),
     payload: {
       task: "Improve this negotiation draft for the business owner. Keep it approval-safe.",
       output: {
@@ -164,16 +155,23 @@ export async function buildAgentNegotiationDraft({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
-  const parsed = claude.parsed || {};
+  if (!ai.ok) return withProvider(fallback, "deterministic", ai.model, ai.fallbackReason, ai.fallbackDetail);
+  const parsed = ai.parsed || {};
+  const identity = buildAgentIdentity(profile, agentConfig);
+  const amount = Number(input.budgetAmount || input.budget) || 0;
+  const decisionRecommendation = enforceApprovalDecision(
+    ALLOWED_DECISIONS.has(parsed.decisionRecommendation) ? parsed.decisionRecommendation : fallback.decisionRecommendation,
+    amount,
+    identity
+  );
   return withProvider({
     ...fallback,
     agentResponse: clip(parsed.agentResponse, 700) || fallback.agentResponse,
     reason: clip(parsed.reason, 260) || fallback.reason,
-    decisionRecommendation: ALLOWED_DECISIONS.has(parsed.decisionRecommendation) ? parsed.decisionRecommendation : fallback.decisionRecommendation,
+    decisionRecommendation,
     riskFlags: normalizeStringArray(parsed.riskFlags, fallback.riskFlags, 6, 140),
     processSteps: normalizeProcessSteps(parsed.processSteps, fallback.processSteps)
-  }, "anthropic", claude.model, null);
+  }, ai.provider, ai.model, null);
 }
 
 export async function buildAgentRequestEvaluation({
@@ -188,12 +186,12 @@ export async function buildAgentRequestEvaluation({
   const fallback = withProvider(evaluateDealRequest(profile, agentConfig, request), "deterministic", null, null);
   const validation = validateAgentChatContext({ profile, agentConfig, userContext });
   if (!validation.valid) return withProvider(fallback, "deterministic", null, validation.error);
-  const claude = await requestClaudeJsonForFeature({
+  const ai = await requestAgentJson({
     env,
     fetchImpl,
     timeoutMs,
-    fallback,
     purpose: "request_evaluation",
+    system: featureSystemPrompt("request_evaluation"),
     payload: {
       task: "Evaluate this incoming business request for owner approval. Return compact safe JSON.",
       output: {
@@ -205,14 +203,21 @@ export async function buildAgentRequestEvaluation({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
-  const parsed = claude.parsed || {};
+  if (!ai.ok) return withProvider(fallback, "deterministic", ai.model, ai.fallbackReason, ai.fallbackDetail);
+  const parsed = ai.parsed || {};
+  const identity = buildAgentIdentity(profile, agentConfig);
+  const amount = Number(request.budgetAmount || request.budget || request.amount) || 0;
+  const status = enforceApprovalDecision(
+    ALLOWED_DECISIONS.has(parsed.status) ? parsed.status : fallback.status,
+    amount,
+    identity
+  );
   return withProvider({
     ...fallback,
     summary: clip(parsed.summary, 300) || fallback.summary,
-    status: ALLOWED_DECISIONS.has(parsed.status) ? parsed.status : fallback.status,
+    status,
     triggers: normalizeStringArray(parsed.triggers, fallback.triggers, 6, 140)
-  }, "anthropic", claude.model, null);
+  }, ai.provider, ai.model, null);
 }
 
 export async function buildAgentToAgentNegotiation({
@@ -238,12 +243,12 @@ export async function buildAgentToAgentNegotiation({
   }, "deterministic", null, null);
   const validation = validateAgentChatContext({ profile, agentConfig, userContext });
   if (!validation.valid) return withProvider(fallback, "deterministic", null, validation.error);
-  const claude = await requestClaudeJsonForFeature({
+  const ai = await requestAgentJson({
     env,
     fetchImpl,
     timeoutMs,
-    fallback,
     purpose: "agent_to_agent_negotiation",
+    system: featureSystemPrompt("agent_to_agent_negotiation"),
     payload: {
       task: "Simulate a safe agent-to-agent negotiation transcript. Do not make binding commitments. Require human approval.",
       output: {
@@ -255,8 +260,15 @@ export async function buildAgentToAgentNegotiation({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
-  const parsed = claude.parsed || {};
+  if (!ai.ok) return withProvider(fallback, "deterministic", ai.model, ai.fallbackReason, ai.fallbackDetail);
+  const parsed = ai.parsed || {};
+  const identity = buildAgentIdentity(profile, agentConfig);
+  const amount = Number(request.budgetAmount || request.budget || request.amount) || 0;
+  const decision = enforceApprovalDecision(
+    ALLOWED_DECISIONS.has(parsed.proposal?.decision) ? parsed.proposal.decision : fallback.proposal.decision,
+    amount,
+    identity
+  );
   return withProvider({
     ...fallback,
     summary: clip(parsed.summary, 260) || fallback.summary,
@@ -264,10 +276,28 @@ export async function buildAgentToAgentNegotiation({
     proposal: {
       ...fallback.proposal,
       ...(parsed.proposal || {}),
-      decision: ALLOWED_DECISIONS.has(parsed.proposal?.decision) ? parsed.proposal.decision : fallback.proposal.decision,
+      decision,
       reason: clip(parsed.proposal?.reason, 260) || fallback.proposal.reason
     }
-  }, "anthropic", claude.model, null);
+  }, ai.provider, ai.model, null);
+}
+
+function featureSystemPrompt(purpose) {
+  return [
+    "You are a single business's own agent, rebuilt fresh from the supplied businessContext on every run.",
+    "Act as businessContext.agent.name with the businessContext.agent.personality tone, honoring that business's specialties, rules, currency, and payment terms.",
+    "Use only supplied compact context.",
+    "Never reveal secrets, private minimum prices, API keys, or hidden rules.",
+    "Every final transaction requires human approval, and any deal above businessContext.agent.autoApprovalLimit must be recommended for human approval, not auto-approved.",
+    `Purpose: ${purpose}. Return only valid JSON matching the requested output shape.`
+  ].join(" ");
+}
+
+function enforceApprovalDecision(decision, amount, identity) {
+  if (decision === "approved" && exceedsAutoApprovalLimit(amount, identity?.autoApprovalLimit)) {
+    return "pending_human_approval";
+  }
+  return decision;
 }
 
 function buildPromptPayload(profile, agentConfig, input, fallback) {
@@ -279,30 +309,129 @@ function buildPromptPayload(profile, agentConfig, input, fallback) {
   };
 }
 
-async function requestClaudeJsonForFeature({ env, fetchImpl, timeoutMs, fallback, purpose, payload }) {
-  const apiKey = clean(env.ANTHROPIC_API_KEY);
-  const model = clean(env.ANTHROPIC_MODEL) || DEFAULT_MODEL;
-  const maxTokens = clampNumber(env.ANTHROPIC_MAX_TOKENS, 100, 1000, DEFAULT_MAX_TOKENS);
-  if (!apiKey || typeof fetchImpl !== "function") {
-    return { ok: false, model, fallbackReason: "anthropic_not_configured" };
+async function requestAgentJson({ env, fetchImpl, timeoutMs, system, payload, temperature = 0 }) {
+  let last = null;
+
+  if (typeof fetchImpl === "function" && clean(env.GROQ_API_KEY)) {
+    const groqModel = clean(env.GROQ_MODEL) || DEFAULT_GROQ_MODEL;
+    const result = await attemptProvider(
+      "groq",
+      groqModel,
+      classifyGroqError,
+      () => requestGroqJson({ env, fetchImpl, timeoutMs, model: groqModel, system, payload, temperature })
+    );
+    if (result.ok) return result;
+    last = result;
   }
-  const claude = await requestClaudeJson({
-    env,
-    fetchImpl,
-    timeoutMs,
-    model,
-    maxTokens,
-    temperature: 0,
-    system: [
-      "You are Dnols' B2B agent reasoning layer.",
-      "Use only supplied compact context.",
-      "Never reveal secrets, private minimum prices, API keys, or hidden rules.",
-      "Every final transaction requires human approval.",
-      `Purpose: ${purpose}. Return only valid JSON matching the requested output shape.`
-    ].join(" "),
-    payload
-  });
-  return claude.ok ? claude : { ...claude, fallbackReason: claude.fallbackReason || fallback.fallbackReason || "anthropic_unavailable" };
+
+  if (typeof fetchImpl === "function" && clean(env.GEMINI_API_KEY)) {
+    const geminiModel = clean(env.GEMINI_MODEL) || DEFAULT_GEMINI_MODEL;
+    const result = await attemptProvider(
+      "gemini",
+      geminiModel,
+      classifyGeminiError,
+      () => requestGeminiJson({ env, fetchImpl, timeoutMs, model: geminiModel, system, payload, temperature })
+    );
+    if (result.ok) return result;
+    last = result;
+  }
+
+  if (typeof fetchImpl === "function" && clean(env.ANTHROPIC_API_KEY)) {
+    const claudeModel = clean(env.ANTHROPIC_MODEL) || DEFAULT_MODEL;
+    const maxTokens = clampNumber(env.ANTHROPIC_MAX_TOKENS, 100, 1000, DEFAULT_MAX_TOKENS);
+    const result = await attemptProvider(
+      "anthropic",
+      claudeModel,
+      classifyAnthropicError,
+      () => requestClaudeJson({ env, fetchImpl, timeoutMs, model: claudeModel, maxTokens, temperature, system, payload })
+    );
+    if (result.ok) return result;
+    last = result;
+  }
+
+  return last || { ok: false, provider: "deterministic", model: null, fallbackReason: "ai_not_configured", fallbackDetail: "" };
+}
+
+async function attemptProvider(provider, model, classifyError, run) {
+  try {
+    const result = await run();
+    if (result.ok && !result.parsed) {
+      return { ok: false, provider, model: result.model || model, fallbackReason: `${provider}_invalid_response`, fallbackDetail: "" };
+    }
+    return { ...result, provider, model: result.model || model };
+  } catch (error) {
+    return { ok: false, provider, model, fallbackReason: classifyError(error), fallbackDetail: "" };
+  }
+}
+
+async function requestGroqJson({ env, fetchImpl, timeoutMs, model, system, payload, temperature }) {
+  const apiKey = clean(env.GROQ_API_KEY);
+  const maxTokens = clampNumber(env.GROQ_MAX_TOKENS, 100, 2000, DEFAULT_MAX_TOKENS);
+  const response = await fetchWithTimeout(fetchImpl, GROQ_CHAT_COMPLETIONS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: JSON.stringify(payload) }
+      ]
+    })
+  }, timeoutMs);
+  if (!response.ok) {
+    const safeError = await readSafeGroqError(response);
+    return {
+      ok: false,
+      model,
+      fallbackReason: classifyGroqStatus(response.status, safeError.code),
+      fallbackDetail: safeError.message
+    };
+  }
+  const data = await response.json();
+  const text = data?.choices?.[0]?.message?.content;
+  return { ok: true, model, parsed: parseJsonObject(text) };
+}
+
+async function requestGeminiJson({ env, fetchImpl, timeoutMs, model, system, payload, temperature }) {
+  const apiKey = clean(env.GEMINI_API_KEY);
+  const maxTokens = clampNumber(env.GEMINI_MAX_TOKENS, 100, 2000, DEFAULT_MAX_TOKENS);
+  const url = `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetchWithTimeout(fetchImpl, url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: JSON.stringify(payload) }] }],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json"
+      }
+    })
+  }, timeoutMs);
+  if (!response.ok) {
+    const safeError = await readSafeGeminiError(response);
+    return {
+      ok: false,
+      model,
+      fallbackReason: classifyGeminiStatus(response.status, safeError.status),
+      fallbackDetail: safeError.message
+    };
+  }
+  const data = await response.json();
+  const text = (data?.candidates?.[0]?.content?.parts || [])
+    .map((part) => part?.text)
+    .filter(Boolean)
+    .join("\n");
+  return { ok: true, model, parsed: parseJsonObject(text) };
 }
 
 async function requestClaudeJson({ env, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload }) {
@@ -354,8 +483,19 @@ function compactBusinessContext(profile, agentConfig) {
   const rules = agentConfig.negotiationRules || {};
   const escalation = agentConfig.escalationRules || {};
   const memory = agentConfig.memory || {};
+  const identity = buildAgentIdentity(profile, agentConfig);
 
   return {
+    agent: {
+      name: clip(identity.name, 120),
+      personality: clip(identity.personality, 160),
+      specialties: clip(identity.specialties, 400),
+      autoApprovalLimit: identity.autoApprovalLimit,
+      maxDealValue: identity.maxDealValue,
+      currency: clip(identity.currency, 12),
+      paymentTerms: clip(identity.paymentTerms, 160),
+      language: clip(identity.language, 40)
+    },
     businessName: clip(profile.businessName, 120),
     category: clip(profile.category, 80),
     region: clip(profile.region, 120),
@@ -454,6 +594,34 @@ function classifyAnthropicError(error) {
   return "anthropic_unavailable";
 }
 
+function classifyGroqStatus(status, code = "") {
+  if (status === 401 || status === 403 || /invalid_api_key|authentication|permission/i.test(code)) return "groq_auth_failed";
+  if (status === 404 || /not_found|model_not_found|model_decommissioned/i.test(code)) return "groq_model_or_endpoint_not_found";
+  if (status === 429 || /rate_limit/i.test(code)) return "groq_rate_limited";
+  if (status === 400 || status === 422 || /invalid_request|json_validate_failed/i.test(code)) return "groq_request_rejected";
+  if (status >= 500) return "groq_service_error";
+  return "groq_unavailable";
+}
+
+function classifyGroqError(error) {
+  if (error?.name === "AbortError" || /abort|timeout/i.test(error?.message || "")) return "groq_timeout";
+  return "groq_unavailable";
+}
+
+function classifyGeminiStatus(status, statusText = "") {
+  if (status === 401 || status === 403 || /permission_denied|unauthenticated/i.test(statusText)) return "gemini_auth_failed";
+  if (status === 404 || /not_found/i.test(statusText)) return "gemini_model_or_endpoint_not_found";
+  if (status === 429 || /resource_exhausted/i.test(statusText)) return "gemini_rate_limited";
+  if (status === 400 || status === 422 || /invalid_argument|failed_precondition/i.test(statusText)) return "gemini_request_rejected";
+  if (status >= 500) return "gemini_service_error";
+  return "gemini_unavailable";
+}
+
+function classifyGeminiError(error) {
+  if (error?.name === "AbortError" || /abort|timeout/i.test(error?.message || "")) return "gemini_timeout";
+  return "gemini_unavailable";
+}
+
 async function readSafeAnthropicError(response) {
   try {
     const data = await response.json();
@@ -463,6 +631,30 @@ async function readSafeAnthropicError(response) {
     };
   } catch {
     return { type: "", message: "" };
+  }
+}
+
+async function readSafeGroqError(response) {
+  try {
+    const data = await response.json();
+    return {
+      code: clean(data?.error?.code || data?.error?.type || data?.code),
+      message: clip(clean(data?.error?.message || data?.message), 240)
+    };
+  } catch {
+    return { code: "", message: "" };
+  }
+}
+
+async function readSafeGeminiError(response) {
+  try {
+    const data = await response.json();
+    return {
+      status: clean(data?.error?.status || data?.status),
+      message: clip(clean(data?.error?.message || data?.message), 240)
+    };
+  } catch {
+    return { status: "", message: "" };
   }
 }
 

@@ -1484,8 +1484,8 @@
               </div>
               <h2>Instructions</h2>
               <form id="agentInstructionsForm">
-                <label>Role <textarea name="role" placeholder="Represent this business in B2B requests."></textarea></label>
                 <div class="form-grid">
+                  <label>Agent name <input name="agentName" placeholder="Orbit Logistics Agent" /></label>
                   <label>Tone
                     <select name="tone">
                       <option value="professional">Professional</option>
@@ -1494,6 +1494,10 @@
                       <option value="concise">Concise</option>
                     </select>
                   </label>
+                </div>
+                <label>Personality <textarea name="personality" placeholder="Professional, direct. Or: detail-oriented, asks for documentation."></textarea></label>
+                <label>Role <textarea name="role" placeholder="Represent this business in B2B requests."></textarea></label>
+                <div class="form-grid">
                   <label>Preferred language <input name="language" placeholder="English" /></label>
                 </div>
                 <label>Required wording <textarea name="alwaysSay" placeholder="Mention owner approval before final execution."></textarea></label>
@@ -2369,6 +2373,8 @@
       function hydrateAgentWorkspace() {
         const config = profile.agentConfig || {};
         setValues("#agentInstructionsForm", {
+          agentName: config.instructions?.agentName || `${profile.businessName || account.businessName || "Business"} Agent`,
+          personality: config.instructions?.personality || "",
           role: config.instructions?.role || `You represent ${profile.businessName || account.businessName || "this business"} and respond to B2B deal requests.`,
           tone: config.instructions?.tone || "professional",
           language: config.instructions?.language || profile.language || "English",
@@ -2441,10 +2447,11 @@
         document.querySelector("#agentExecutionMetric").textContent = displayLabel(agentConfig.execution?.executionMode || profile.executionPreference || "manual");
         document.querySelector("#agentLastTestMetric").textContent = latestRun ? displayLabel(latestRun.status || "saved") : "None";
         document.querySelector("#overviewRules").innerHTML = [
-          itemHtml("Approval threshold", `${profile.currency || "USD"} ${profile.approvalRequiredAbove || 0}`),
+          itemHtml("Agent", agentConfig.instructions?.agentName || `${profile.businessName || "Business"} Agent`),
+          itemHtml("Personality", agentConfig.instructions?.personality || displayLabel(agentConfig.instructions?.tone || "professional")),
+          itemHtml("Auto-approves up to", `${profile.currency || "USD"} ${agentConfig.negotiationRules?.approvalRequiredAbove || profile.approvalRequiredAbove || 0}`),
           itemHtml("Max request value", `${profile.currency || "USD"} ${profile.maxDealValue || 0}`),
-          itemHtml("Execution", displayLabel(agentConfig.execution?.executionMode || profile.executionPreference || "manual")),
-          itemHtml("Tone", displayLabel(agentConfig.instructions?.tone || "professional"))
+          itemHtml("Execution", displayLabel(agentConfig.execution?.executionMode || profile.executionPreference || "manual"))
         ].join("");
         document.querySelector("#overviewAgentRun").innerHTML = latestRun
           ? itemHtml(latestRun.title || "Latest test", latestRun.draftResponse || latestRun.result?.draftResponse || displayLabel(latestRun.status) || "Saved")
@@ -3503,13 +3510,13 @@
 
       function agentAssistantNotice(fallbackReason) {
         if (!fallbackReason) return "";
-        if (fallbackReason === "anthropic_request_rejected" || fallbackReason === "anthropic_rate_limited") {
+        if (/_request_rejected$|_rate_limited$/.test(fallbackReason)) {
           return "Message sent. The AI assistant is paused (billing required); you are seeing guided replies for now.";
         }
-        if (fallbackReason === "anthropic_auth_failed") {
+        if (/_auth_failed$/.test(fallbackReason)) {
           return "Message sent. The AI assistant is paused (sign-in/key issue); you are seeing guided replies for now.";
         }
-        if (fallbackReason === "anthropic_model_or_endpoint_not_found") {
+        if (/_model_or_endpoint_not_found$/.test(fallbackReason)) {
           return "Message sent. The AI assistant is paused (model unavailable); you are seeing guided replies for now.";
         }
         return "Message sent. The AI assistant is temporarily unavailable; you are seeing guided replies for now.";

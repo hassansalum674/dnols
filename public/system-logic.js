@@ -154,6 +154,50 @@ export function transitionPublishingStatus(currentProfile, registryStatus) {
   };
 }
 
+export function buildAgentIdentity(profile = {}, agentConfig = {}) {
+  const instructions = agentConfig.instructions || {};
+  const capability = agentConfig.capability || {};
+  const rules = agentConfig.negotiationRules || {};
+  const memory = agentConfig.memory || {};
+  const businessName = clean(profile.businessName) || clean(capability.name || profile.capabilityName) || "Business";
+  const specialties = [
+    capability.name || profile.capabilityName,
+    capability.tags || profile.tags,
+    memory.services || profile.summary,
+    memory.serviceAreas || profile.region
+  ]
+    .map(clean)
+    .filter(Boolean)
+    .join("; ");
+
+  return {
+    name: clean(instructions.agentName) || `${businessName} Agent`,
+    personality: clean(instructions.personality) || personalityFromTone(instructions.tone),
+    specialties,
+    currency: firstValue(rules.currencies || profile.currency || "USD").toUpperCase(),
+    autoApprovalLimit: numberOrZero(rules.approvalRequiredAbove || profile.approvalRequiredAbove),
+    maxDealValue: numberOrZero(rules.maxDealValue || profile.maxDealValue),
+    minimumPrice: numberOrZero(rules.minimumPrice),
+    paymentTerms: clean(rules.paymentTerms || profile.paymentTerms),
+    language: clean(instructions.language || profile.language) || "English"
+  };
+}
+
+export function exceedsAutoApprovalLimit(amount, autoApprovalLimit) {
+  const limit = numberOrZero(autoApprovalLimit);
+  return limit > 0 && numberOrZero(amount) > limit;
+}
+
+function personalityFromTone(tone) {
+  const map = {
+    professional: "professional and direct",
+    friendly: "friendly and approachable",
+    strict: "strict and detail-oriented, asks for documentation",
+    concise: "concise and to the point"
+  };
+  return map[clean(tone)] || "professional and direct";
+}
+
 export function evaluateDealRequest(profile, agentConfig, request) {
   const rules = agentConfig?.negotiationRules || {};
   const capability = agentConfig?.capability || {};
@@ -223,14 +267,21 @@ export function buildNegotiationDraft(profile, agentConfig, task) {
   };
   const evaluation = evaluateDealRequest(profile, config, requestPayload);
   const maxDealValue = numberOrZero(rules.maxDealValue || profile.maxDealValue);
+  const autoApprovalLimit = numberOrZero(rules.approvalRequiredAbove || profile.approvalRequiredAbove);
   const overMaxDealValue = maxDealValue > 0 && budgetAmount > maxDealValue;
+  const overAutoApprovalLimit = exceedsAutoApprovalLimit(budgetAmount, autoApprovalLimit);
   const missingRequiredInfo = !requirements || !deadline || !budgetAmount;
   const riskFlags = [
     ...evaluation.triggers,
     ...(overMaxDealValue ? ["Budget is above the maximum configured deal value."] : []),
+    ...(overAutoApprovalLimit ? [`Budget is above the ${currency} ${autoApprovalLimit} auto-approval limit; human approval required.`] : []),
     ...(missingRequiredInfo ? ["Some required deal fields are missing."] : [])
   ];
-  const decisionRecommendation = overMaxDealValue || missingRequiredInfo ? DEAL_STATUS.REJECTED : DEAL_STATUS.APPROVED;
+  const decisionRecommendation = overMaxDealValue || missingRequiredInfo
+    ? DEAL_STATUS.REJECTED
+    : overAutoApprovalLimit
+      ? DEAL_STATUS.PENDING_HUMAN_APPROVAL
+      : DEAL_STATUS.APPROVED;
   const reason = buildNegotiationReason({
     businessName,
     targetName,
@@ -311,13 +362,14 @@ export function buildOwnerAgentChatResponse(profile = {}, agentConfig = {}, inpu
 
   const text = message.toLowerCase();
   const businessName = clean(profile.businessName) || "your business";
+  const identity = buildAgentIdentity(profile, agentConfig);
   const capability = clean(agentConfig.capability?.name || profile.capabilityName || "your configured offer");
   const currency = clean(firstValue(agentConfig.negotiationRules?.currencies || profile.currency || "USD")).toUpperCase();
   const approvalThreshold = numberOrZero(agentConfig.negotiationRules?.approvalRequiredAbove || profile.approvalRequiredAbove);
   const maxDealValue = numberOrZero(agentConfig.negotiationRules?.maxDealValue || profile.maxDealValue);
 
   let topic = "general";
-  let response = `I can help with ${businessName}'s deals, orders, approvals, and publishing. Tell me what you want to move forward, and I will point you to the right dashboard area.`;
+  let response = `I am ${identity.name}, working for ${businessName}. I can help with deals, orders, approvals, and publishing. Tell me what you want to move forward, and I will point you to the right dashboard area.`;
   const nextActions = ["Use Inbox for new requests, Approvals for owner decisions, Orders for delivery follow-up, and Public Publishing for registry changes."];
 
   if (/approv|reject|human|review|threshold/.test(text)) {
@@ -653,8 +705,10 @@ function buildAgentConfig(input, currency, maxDealValue, approvalRequiredAbove) 
   return {
     status: PROFILE_STATUS.DRAFT,
     instructions: {
+      agentName: clean(input.agentName) || `${clean(input.publisherName) || "Business"} Agent`,
+      personality: clean(input.personality) || personalityFromTone(input.tone),
       role: `You represent ${clean(input.publisherName)} and respond to B2B requests.`,
-      tone: "professional",
+      tone: clean(input.tone) || "professional",
       language: clean(input.language) || "English",
       alwaysSay: "Final execution requires human approval.",
       neverSay: "Never reveal private minimum prices or internal constraints.",
