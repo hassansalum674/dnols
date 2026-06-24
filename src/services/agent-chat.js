@@ -100,7 +100,7 @@ export async function buildOwnerAgentChat({
       payload: buildPromptPayload(profile, agentConfig, input, fallback)
     });
     if (!claude.ok) {
-      return withProvider(fallback, "deterministic", model, claude.fallbackReason);
+      return withProvider(fallback, "deterministic", claude.model || model, claude.fallbackReason);
     }
     const parsed = claude.parsed;
     if (!parsed) {
@@ -124,7 +124,7 @@ export async function buildOwnerAgentChat({
         ]
       },
       "anthropic",
-      model,
+      claude.model || model,
       null
     );
   } catch (error) {
@@ -301,11 +301,19 @@ async function requestClaudeJsonForFeature({ env, fetchImpl, timeoutMs, fallback
     ].join(" "),
     payload
   });
-  return claude.ok ? { ...claude, model } : { ...claude, model, fallbackReason: claude.fallbackReason || fallback.fallbackReason || "anthropic_unavailable" };
+  return claude.ok ? claude : { ...claude, fallbackReason: claude.fallbackReason || fallback.fallbackReason || "anthropic_unavailable" };
 }
 
 async function requestClaudeJson({ env, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload }) {
   const apiKey = clean(env.ANTHROPIC_API_KEY);
+  const first = await sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload });
+  if (!first.ok && shouldRetryDefaultModel(first.fallbackReason, model)) {
+    return sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model: DEFAULT_MODEL, maxTokens, temperature, system, payload });
+  }
+  return first;
+}
+
+async function sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload }) {
   const response = await fetchWithTimeout(fetchImpl, ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {
@@ -322,11 +330,11 @@ async function requestClaudeJson({ env, fetchImpl, timeoutMs, model, maxTokens, 
     })
   }, timeoutMs);
   if (!response.ok) {
-    return { ok: false, fallbackReason: classifyAnthropicStatus(response.status) };
+    return { ok: false, model, fallbackReason: classifyAnthropicStatus(response.status) };
   }
   const data = await response.json();
   const text = data?.content?.find((block) => block?.type === "text")?.text;
-  return { ok: true, parsed: parseJsonObject(text) };
+  return { ok: true, model, parsed: parseJsonObject(text) };
 }
 
 function compactBusinessContext(profile, agentConfig) {
@@ -430,6 +438,14 @@ function classifyAnthropicStatus(status) {
 function classifyAnthropicError(error) {
   if (error?.name === "AbortError" || /abort|timeout/i.test(error?.message || "")) return "anthropic_timeout";
   return "anthropic_unavailable";
+}
+
+function shouldRetryDefaultModel(fallbackReason, model) {
+  return (
+    clean(model) &&
+    clean(model) !== DEFAULT_MODEL &&
+    (fallbackReason === "anthropic_bad_request_or_model" || fallbackReason === "anthropic_model_or_endpoint_not_found")
+  );
 }
 
 function parseJsonObject(text) {

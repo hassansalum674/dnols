@@ -161,6 +161,70 @@ test("agent chat exposes safe fallback reason for Anthropic auth failure", async
   assert.equal(result.fallbackReason, "anthropic_auth_failed");
 });
 
+test("agent chat retries safe default model when configured model is rejected", async () => {
+  const requestedModels = [];
+  const result = await buildOwnerAgentChat({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-a" },
+    input: { message: "Help with a request." },
+    env: {
+      ANTHROPIC_API_KEY: "test-key",
+      ANTHROPIC_MODEL: "bad-model-name"
+    },
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      requestedModels.push(body.model);
+      if (body.model === "bad-model-name") return { ok: false, status: 400 };
+      return {
+        ok: true,
+        async json() {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  topic: "deal",
+                  agentResponse: "Claude answered after retrying the safe default model.",
+                  nextActions: ["Review the request before approving."]
+                })
+              }
+            ]
+          };
+        }
+      };
+    }
+  });
+
+  assert.deepEqual(requestedModels, ["bad-model-name", "claude-3-5-haiku-latest"]);
+  assert.equal(result.provider, "anthropic");
+  assert.equal(result.model, "claude-3-5-haiku-latest");
+  assert.match(result.agentResponse, /retrying the safe default model/);
+});
+
+test("agent chat keeps auth failures on configured model without retrying", async () => {
+  const requestedModels = [];
+  const result = await buildOwnerAgentChat({
+    profile,
+    agentConfig,
+    userContext: { uid: "owner-a" },
+    input: { message: "Hello" },
+    env: {
+      ANTHROPIC_API_KEY: "bad-key",
+      ANTHROPIC_MODEL: "bad-model-name"
+    },
+    fetchImpl: async (_url, options) => {
+      requestedModels.push(JSON.parse(options.body).model);
+      return { ok: false, status: 401 };
+    }
+  });
+
+  assert.deepEqual(requestedModels, ["bad-model-name"]);
+  assert.equal(result.provider, "deterministic");
+  assert.equal(result.model, "bad-model-name");
+  assert.equal(result.fallbackReason, "anthropic_auth_failed");
+});
+
 test("negotiation draft uses Anthropic JSON when available", async () => {
   const result = await buildAgentNegotiationDraft({
     profile,

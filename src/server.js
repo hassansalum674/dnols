@@ -40,6 +40,7 @@ const ALLOWED_CORS_ORIGINS = new Set([
 ]);
 const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const businessEmailVerifier = createBusinessEmailVerifier();
+const API_VERSION = "agent-claude-flows-2026-06-24";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -83,6 +84,7 @@ async function route(request, response) {
     sendJson(response, 200, {
       ok: true,
       service: "dnols-api",
+      version: API_VERSION,
       environment: process.env.NODE_ENV || "development"
     });
     return;
