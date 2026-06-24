@@ -3460,25 +3460,34 @@
       async function sendOwnerAgentChat(event) {
         event.preventDefault();
         const input = Object.fromEntries(new FormData(event.target).entries());
-        const fallbackChat = buildOwnerAgentChatResponse(profile, profile.agentConfig || {}, input);
-        const chat = await requestOwnerAgentChat(input, fallbackChat);
-        await createAgentRun(user.uid, {
-          ...chat,
-          result: {
+        try {
+          showStatus("#agentChatStatus", "Sending...");
+          const fallbackChat = buildOwnerAgentChatResponse(profile, profile.agentConfig || {}, input);
+          const chat = await requestOwnerAgentChat(input, fallbackChat);
+          const savedAtClient = new Date().toISOString();
+          await createAgentRun(user.uid, {
+            ...chat,
+            createdAtClient: savedAtClient,
+            result: {
+              topic: chat.topic,
+              nextActions: chat.nextActions,
+              provider: chat.provider || "deterministic",
+              fallbackReason: chat.fallbackReason || "",
+              fallbackDetail: chat.fallbackDetail || ""
+            }
+          });
+          await recordAudit("owner_agent_chat", "Owner chatted with agent", {
             topic: chat.topic,
-            nextActions: chat.nextActions,
+            summary: chat.agentResponse,
             provider: chat.provider || "deterministic",
             fallbackReason: chat.fallbackReason || ""
-          }
-        });
-        await recordAudit("owner_agent_chat", "Owner chatted with agent", {
-          topic: chat.topic,
-          summary: chat.agentResponse,
-          provider: chat.provider || "deterministic"
-        });
-        event.target.reset();
-        showStatus("#agentChatStatus", "Message sent.");
-        await reloadAll();
+          });
+          event.target.reset();
+          showStatus("#agentChatStatus", chat.fallbackReason ? `Message sent. Backend fallback: ${displayLabel(chat.fallbackReason)}.` : "Message sent.");
+          await reloadAll();
+        } catch (error) {
+          showErrorStatus("#agentChatStatus", `Message could not be shown: ${error.message}`);
+        }
       }
 
       async function clearOwnerAgentChat() {
@@ -3512,7 +3521,8 @@
           ...fallbackChat,
           provider: "deterministic",
           model: payload?.model || null,
-          fallbackReason: payload?.fallbackReason || payload?.message || "backend_unavailable"
+          fallbackReason: payload?.fallbackReason || payload?.message || "backend_unavailable",
+          fallbackDetail: payload?.fallbackDetail || payload?.chat?.fallbackDetail || ""
         };
       }
 

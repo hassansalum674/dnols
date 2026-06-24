@@ -185,7 +185,8 @@ async function route(request, response) {
       chat,
       provider: chat.provider,
       model: chat.model,
-      fallbackReason: chat.fallbackReason
+      fallbackReason: chat.fallbackReason,
+      fallbackDetail: chat.fallbackDetail
     });
     return;
   }
@@ -211,7 +212,8 @@ async function route(request, response) {
       draft,
       provider: draft.provider,
       model: draft.model,
-      fallbackReason: draft.fallbackReason
+      fallbackReason: draft.fallbackReason,
+      fallbackDetail: draft.fallbackDetail
     });
     return;
   }
@@ -237,7 +239,8 @@ async function route(request, response) {
       evaluation,
       provider: evaluation.provider,
       model: evaluation.model,
-      fallbackReason: evaluation.fallbackReason
+      fallbackReason: evaluation.fallbackReason,
+      fallbackDetail: evaluation.fallbackDetail
     });
     return;
   }
@@ -263,7 +266,8 @@ async function route(request, response) {
       negotiation,
       provider: negotiation.provider,
       model: negotiation.model,
-      fallbackReason: negotiation.fallbackReason
+      fallbackReason: negotiation.fallbackReason,
+      fallbackDetail: negotiation.fallbackDetail
     });
     return;
   }

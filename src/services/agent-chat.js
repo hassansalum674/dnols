@@ -101,7 +101,7 @@ export async function buildOwnerAgentChat({
       payload: buildPromptPayload(profile, agentConfig, input, fallback)
     });
     if (!claude.ok) {
-      return withProvider(fallback, "deterministic", claude.model || model, claude.fallbackReason);
+      return withProvider(fallback, "deterministic", claude.model || model, claude.fallbackReason, claude.fallbackDetail);
     }
     const parsed = claude.parsed;
     if (!parsed) {
@@ -164,7 +164,7 @@ export async function buildAgentNegotiationDraft({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason);
+  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
   const parsed = claude.parsed || {};
   return withProvider({
     ...fallback,
@@ -205,7 +205,7 @@ export async function buildAgentRequestEvaluation({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason);
+  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
   const parsed = claude.parsed || {};
   return withProvider({
     ...fallback,
@@ -255,7 +255,7 @@ export async function buildAgentToAgentNegotiation({
       businessContext: compactBusinessContext(profile, agentConfig)
     }
   });
-  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason);
+  if (!claude.ok) return withProvider(fallback, "deterministic", claude.model, claude.fallbackReason, claude.fallbackDetail);
   const parsed = claude.parsed || {};
   return withProvider({
     ...fallback,
@@ -336,10 +336,12 @@ async function sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, 
     })
   }, timeoutMs);
   if (!response.ok) {
+    const safeError = await readSafeAnthropicError(response);
     return {
       ok: false,
       model,
-      fallbackReason: classifyAnthropicStatus(response.status, await readSafeAnthropicError(response))
+      fallbackReason: classifyAnthropicStatus(response.status, safeError.type),
+      fallbackDetail: safeError.message
     };
   }
   const data = await response.json();
@@ -455,9 +457,12 @@ function classifyAnthropicError(error) {
 async function readSafeAnthropicError(response) {
   try {
     const data = await response.json();
-    return clean(data?.error?.type || data?.type || data?.error);
+    return {
+      type: clean(data?.error?.type || data?.type || data?.error),
+      message: clip(clean(data?.error?.message || data?.message), 240)
+    };
   } catch {
-    return "";
+    return { type: "", message: "" };
   }
 }
 
@@ -493,12 +498,13 @@ async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
   }
 }
 
-function withProvider(chat, provider, model, fallbackReason) {
+function withProvider(chat, provider, model, fallbackReason, fallbackDetail = "") {
   return {
     ...chat,
     provider,
     model,
-    fallbackReason
+    fallbackReason,
+    fallbackDetail
   };
 }
 
