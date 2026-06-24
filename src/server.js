@@ -406,6 +406,18 @@ async function route(request, response) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/password-reset/complete") {
+    const body = await readRequestJson(request);
+    const result = await passwordResetVerifier.completeReset({
+      challengeId: body.challengeId,
+      email: body.email,
+      resetToken: body.resetToken,
+      newPassword: body.newPassword ?? body.password
+    });
+    sendJson(response, result.ok ? 200 : result.statusCode ?? 400, result);
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/generate-from-website") {
     const body = await readRequestJson(request);
     try {

@@ -361,7 +361,7 @@
         <div class="modal-header">
           <div>
             <h2>Reset password</h2>
-            <p>Enter your business email. We will send an 8-character security code before the Firebase reset email.</p>
+            <p>Enter your business email. We will send an 8-character security code before you choose a new password.</p>
           </div>
           <button class="icon-btn" id="closeResetDialogBtn" type="button" aria-label="Close reset password dialog">&times;</button>
         </div>
@@ -384,10 +384,35 @@
               required
             />
           </label>
-          <button class="btn" id="verifyResetCodeBtn" type="submit">Verify code and email reset link</button>
+          <button class="btn" id="verifyResetCodeBtn" type="submit">Verify code</button>
           <button class="link-btn" id="resendResetCodeBtn" type="button">Send a new code</button>
         </form>
-        <p class="security-note">Codes expire quickly and incorrect attempts are limited. Dnols will never ask for your password in this dialog.</p>
+        <form class="code-panel" id="resetPasswordForm" method="dialog" hidden>
+          <label>
+            New password
+            <input
+              name="newPassword"
+              type="password"
+              minlength="12"
+              autocomplete="new-password"
+              placeholder="At least 12 characters"
+              required
+            />
+          </label>
+          <label>
+            Confirm new password
+            <input
+              name="confirmPassword"
+              type="password"
+              minlength="12"
+              autocomplete="new-password"
+              placeholder="Re-enter new password"
+              required
+            />
+          </label>
+          <button class="btn" id="completeResetBtn" type="submit">Update password</button>
+        </form>
+        <p class="security-note">Codes expire quickly and incorrect attempts are limited. Only enter a new password after your code is verified.</p>
         <div id="resetStatus" class="status"></div>
       </div>
     </dialog>
@@ -395,7 +420,6 @@
     <script type="module">
       import {
         createOwnerDoc,
-        resetPassword,
         signIn,
         signInWithGoogle,
         signOutUser,
@@ -415,9 +439,11 @@
       const resetDialog = document.querySelector("#resetDialog");
       const resetForm = document.querySelector("#resetForm");
       const resetCodeForm = document.querySelector("#resetCodeForm");
+      const resetPasswordForm = document.querySelector("#resetPasswordForm");
       const resetStatus = document.querySelector("#resetStatus");
       const sendResetCodeBtn = document.querySelector("#sendResetCodeBtn");
       const verifyResetCodeBtn = document.querySelector("#verifyResetCodeBtn");
+      const completeResetBtn = document.querySelector("#completeResetBtn");
       const resendResetCodeBtn = document.querySelector("#resendResetCodeBtn");
       const closeResetDialogBtn = document.querySelector("#closeResetDialogBtn");
       const RENDER_API_ORIGIN = "https://dnols-83jj.onrender.com";
@@ -428,6 +454,7 @@
       let mode = "signup";
       let authFlowInProgress = false;
       let resetChallengeId = "";
+      let resetToken = "";
       let resetEmail = "";
 
       watchUser((user) => {
@@ -467,7 +494,9 @@
         const email = form.elements.email.value.trim();
         resetForm.elements.resetEmail.value = email;
         resetCodeForm.hidden = true;
+        resetPasswordForm.hidden = true;
         resetChallengeId = "";
+        resetToken = "";
         resetEmail = "";
         resetStatus.innerHTML = "";
         resetDialog.showModal();
@@ -482,6 +511,10 @@
       resetCodeForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         await verifyResetCode();
+      });
+      resetPasswordForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await completePasswordReset();
       });
 
       form.addEventListener("submit", async (event) => {
@@ -538,9 +571,12 @@
         try {
           const result = await postToFirstAvailableEndpoint("/start", { email });
           resetChallengeId = result.challengeId;
+          resetToken = "";
           resetEmail = validation.email;
           resetCodeForm.hidden = false;
+          resetPasswordForm.hidden = true;
           resetCodeForm.elements.resetCode.value = "";
+          resetPasswordForm.reset();
           showResetOk(result.message || "If this business email can reset a dashboard password, a code was sent.");
         } catch (error) {
           showResetError(readableResetError(error));
@@ -560,34 +596,71 @@
         verifyResetCodeBtn.disabled = true;
         verifyResetCodeBtn.textContent = "Verifying...";
         try {
-          await postToFirstAvailableEndpoint("/verify", {
+          const result = await postToFirstAvailableEndpoint("/verify", {
             challengeId: resetChallengeId,
             email: resetEmail,
             code
           });
-          await sendFirebasePasswordReset(resetEmail);
-          showResetOk("Code verified. If this dashboard exists, Firebase sent the password reset email.");
-          showOk("Password reset security check passed. Check your business email for the reset link.");
-          resetChallengeId = "";
+          resetToken = result.resetToken;
           resetCodeForm.hidden = true;
+          resetPasswordForm.hidden = false;
+          resetPasswordForm.elements.newPassword.focus();
+          showResetOk(result.message || "Code verified. Enter a new password.");
+          showOk("Password reset security check passed. Finish by choosing a new password.");
         } catch (error) {
           showResetError(readableResetError(error));
         } finally {
           verifyResetCodeBtn.disabled = false;
-          verifyResetCodeBtn.textContent = "Verify code and email reset link";
+          verifyResetCodeBtn.textContent = "Verify code";
         }
       }
 
-      async function sendFirebasePasswordReset(email) {
-        try {
-          await resetPassword(email);
-        } catch (error) {
-          const code = error?.code || "";
-          if (code === "auth/user-not-found" || code === "auth/invalid-email") {
-            return;
-          }
-          throw error;
+      async function completePasswordReset() {
+        if (!resetChallengeId || !resetEmail || !resetToken) {
+          showResetError("Verify your reset code first.");
+          return;
         }
+
+        const password = resetPasswordForm.elements.newPassword.value;
+        const confirmPassword = resetPasswordForm.elements.confirmPassword.value;
+        const passwordError = validateNewPassword(password, confirmPassword);
+        if (passwordError) {
+          showResetError(passwordError);
+          return;
+        }
+
+        completeResetBtn.disabled = true;
+        completeResetBtn.textContent = "Updating...";
+        try {
+          const result = await postToFirstAvailableEndpoint("/complete", {
+            challengeId: resetChallengeId,
+            email: resetEmail,
+            resetToken,
+            newPassword: password
+          });
+          showResetOk(result.message || "Password updated. You can sign in with your new password.");
+          resetChallengeId = "";
+          resetToken = "";
+          resetCodeForm.hidden = true;
+          resetPasswordForm.hidden = true;
+          form.elements.email.value = resetEmail;
+          setMode("signin");
+          showOk("Password updated. Sign in with your new password.");
+        } catch (error) {
+          showResetError(readableResetError(error));
+        } finally {
+          completeResetBtn.disabled = false;
+          completeResetBtn.textContent = "Update password";
+        }
+      }
+
+      function validateNewPassword(password, confirmPassword) {
+        if (password !== confirmPassword) return "The new passwords do not match.";
+        if (password.length < 12) return "Use at least 12 characters for the new password.";
+        if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+          return "Use uppercase, lowercase, number, and symbol characters.";
+        }
+        return "";
       }
 
       async function postToFirstAvailableEndpoint(path, payload) {
@@ -644,7 +717,13 @@
           sender_not_configured: "Password reset sender is not configured yet.",
           reset_invalid_code: "The reset code is incorrect or expired.",
           reset_code_expired: "The reset code is incorrect or expired.",
-          reset_too_many_attempts: "Too many incorrect attempts. Request a new code."
+          reset_session_not_found: "The password reset session is incorrect or expired.",
+          reset_session_expired: "The password reset session is incorrect or expired.",
+          reset_invalid_session: "The password reset session is incorrect or expired.",
+          reset_too_many_attempts: "Too many incorrect attempts. Request a new code.",
+          weak_password: "Use at least 12 characters with uppercase, lowercase, number, and symbol.",
+          firebase_admin_not_configured: "Password reset is not fully configured yet. Contact Dnols support.",
+          firebase_password_update_failed: "Password could not be updated right now. Try again later."
         };
         if (messages[error?.code]) return messages[error.code];
         return readableAuthError(error);

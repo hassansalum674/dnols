@@ -63,7 +63,8 @@ test("password reset verifies code once and consumes challenge", async () => {
 
   assert.equal(verified.ok, true);
   assert.equal(verified.resetAuthorized, true);
-  assert.equal(verified.businessEmail, "owner@acme.example");
+  assert.equal(typeof verified.resetToken, "string");
+  assert.equal(verified.businessEmail, undefined);
 
   const replay = verifier.verifyCode({
     challengeId: start.challengeId,
@@ -72,6 +73,191 @@ test("password reset verifies code once and consumes challenge", async () => {
   });
   assert.equal(replay.ok, false);
   assert.equal(replay.error, "reset_challenge_not_found");
+});
+
+test("password reset completes with new password after verified code", async () => {
+  const updates = [];
+  const verifier = createVerifierWithCode("ABCD2345", {
+    passwordUpdater: async (input) => {
+      updates.push(input);
+      return { ok: true };
+    }
+  });
+  const start = await verifier.startReset({ email: "Owner@Acme.Example", ip: "203.0.113.10" });
+  const verified = verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  const completed = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "StrongPass1!"
+  });
+
+  assert.equal(completed.ok, true);
+  assert.equal(completed.passwordUpdated, true);
+  assert.deepEqual(updates, [{ email: "owner@acme.example", password: "StrongPass1!" }]);
+
+  const replay = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "StrongPass1!"
+  });
+  assert.equal(replay.ok, false);
+  assert.equal(replay.error, "reset_session_not_found");
+});
+
+test("password reset rejects expired completion session without updating password", async () => {
+  let currentTime = Date.parse("2026-06-24T18:00:00.000Z");
+  const updates = [];
+  const verifier = createVerifierWithCode("ABCD2345", {
+    now: () => currentTime,
+    passwordUpdater: async (input) => {
+      updates.push(input);
+      return { ok: true };
+    }
+  });
+  const start = await verifier.startReset({ email: "owner@acme.example", ip: "203.0.113.10" });
+  const verified = verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  currentTime += 5 * 60 * 1000 + 1;
+  const completed = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "StrongPass1!"
+  });
+
+  assert.equal(completed.ok, false);
+  assert.equal(completed.error, "reset_session_expired");
+  assert.deepEqual(updates, []);
+});
+
+test("password reset validates completion token and limits bad attempts", async () => {
+  const updates = [];
+  const verifier = createVerifierWithCode("ABCD2345", {
+    passwordUpdater: async (input) => {
+      updates.push(input);
+      return { ok: true };
+    }
+  });
+  const start = await verifier.startReset({ email: "owner@acme.example", ip: "203.0.113.10" });
+  verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await verifier.completeReset({
+      challengeId: start.challengeId,
+      email: "owner@acme.example",
+      resetToken: `wrong-${attempt}`,
+      newPassword: "StrongPass1!"
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.error, "reset_invalid_session");
+  }
+
+  const locked = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: "still-wrong",
+    newPassword: "StrongPass1!"
+  });
+  assert.equal(locked.ok, false);
+  assert.equal(locked.error, "reset_too_many_attempts");
+  assert.deepEqual(updates, []);
+});
+
+test("password reset rejects weak new password before Firebase update", async () => {
+  const updates = [];
+  const verifier = createVerifierWithCode("ABCD2345", {
+    passwordUpdater: async (input) => {
+      updates.push(input);
+      return { ok: true };
+    }
+  });
+  const start = await verifier.startReset({ email: "owner@acme.example", ip: "203.0.113.10" });
+  const verified = verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  const completed = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "password"
+  });
+
+  assert.equal(completed.ok, false);
+  assert.equal(completed.error, "weak_password");
+  assert.deepEqual(updates, []);
+});
+
+test("password reset rejects new password containing business email details", async () => {
+  const updates = [];
+  const verifier = createVerifierWithCode("ABCD2345", {
+    passwordUpdater: async (input) => {
+      updates.push(input);
+      return { ok: true };
+    }
+  });
+  const start = await verifier.startReset({ email: "owner@acme.example", ip: "203.0.113.10" });
+  const verified = verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  const completed = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "Acme.example1!"
+  });
+
+  assert.equal(completed.ok, false);
+  assert.equal(completed.error, "weak_password");
+  assert.deepEqual(updates, []);
+});
+
+test("password reset fails safely when Firebase updater is not configured", async () => {
+  const verifier = createVerifierWithCode("ABCD2345", {
+    passwordUpdater: async () => ({
+      ok: false,
+      statusCode: 503,
+      error: "firebase_admin_not_configured",
+      message: "Password updates are not configured on the server yet."
+    })
+  });
+  const start = await verifier.startReset({ email: "owner@acme.example", ip: "203.0.113.10" });
+  const verified = verifier.verifyCode({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    code: "ABCD2345"
+  });
+
+  const completed = await verifier.completeReset({
+    challengeId: start.challengeId,
+    email: "owner@acme.example",
+    resetToken: verified.resetToken,
+    newPassword: "StrongPass1!"
+  });
+
+  assert.equal(completed.ok, false);
+  assert.equal(completed.statusCode, 503);
+  assert.equal(completed.error, "firebase_admin_not_configured");
 });
 
 test("password reset expires challenges", async () => {

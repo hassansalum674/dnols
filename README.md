@@ -86,20 +86,23 @@ RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...
 RESEND_FROM_NAME=Dnols
 BUSINESS_EMAIL_VERIFICATION_SECRET=...
+# Required for server-side Firebase Auth password reset completion.
+FIREBASE_PROJECT_ID=dnols-2a394
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
 # Optional persisted SMS deal store. Without this, the service uses memory.
 DEAL_STORE_BACKEND=firestore
-FIREBASE_PROJECT_ID=dnols-2a394
-GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 # Optional in-process reminder loop. Prefer Render Cron for production.
 SMS_REMINDER_INTERVAL_ENABLED=false
 SMS_REMINDER_INTERVAL_MS=900000
 ```
 
 Never put these values in `public/` files or commit them. The browser calls the backend; the backend calls Claude, Resend, and Africa's Talking.
+
+Password reset completion updates Firebase Auth through the Admin SDK on the Render backend after the business-email code is verified. If `firebase-admin` or the Firebase project/service account environment is missing, `/api/password-reset/complete` returns a safe 503 and does not update the password.
 
 ## SMS Deal Notifications
 
@@ -140,6 +143,8 @@ Start and persist a new deal, then send the seller the first request SMS:
 `POST /api/sms/run-reminders` scans active deals and sends the 2-hour reminder SMS to deals that have `lastNotifiedAt` older than the reminder window and no `remindedAt`. Use Render Cron or another external scheduler to call it. For development only, set `SMS_REMINDER_INTERVAL_ENABLED=true` to run the interval in-process.
 
 The default deal store is in-memory. For production persistence, install/configure `firebase-admin` in the Render service environment and set `DEAL_STORE_BACKEND=firestore` with `FIREBASE_PROJECT_ID` or `GOOGLE_APPLICATION_CREDENTIALS`. The Admin SDK writes server-only `deals` and `dealPhoneIndex` collections; Firestore client rules deny direct browser access.
+
+The business password reset flow also uses the Render service after the emailed 8-character code is verified. To complete password updates server-side, install/configure `firebase-admin` for the Render service and provide `FIREBASE_PROJECT_ID` plus Application Default Credentials via `GOOGLE_APPLICATION_CREDENTIALS`, or provide `FIREBASE_SERVICE_ACCOUNT_JSON` as a secret environment variable. If Admin SDK credentials are absent, the reset code verification still works but the final password update endpoint returns a generic configuration error.
 
 ## Product Surfaces
 

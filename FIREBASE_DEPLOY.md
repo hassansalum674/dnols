@@ -182,20 +182,22 @@ RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...
 RESEND_FROM_NAME=Dnols
 BUSINESS_EMAIL_VERIFICATION_SECRET=...
+# Required for server-side Firebase Auth password reset completion.
+FIREBASE_PROJECT_ID=dnols-2a394
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
+# Alternatively, provide FIREBASE_SERVICE_ACCOUNT_JSON as a secret env var.
 AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
 # Optional Firestore-backed SMS deal state for the Render service.
 DEAL_STORE_BACKEND=firestore
-FIREBASE_PROJECT_ID=dnols-2a394
-GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 # Prefer Render Cron for production reminder runs.
 SMS_REMINDER_INTERVAL_ENABLED=false
 SMS_REMINDER_INTERVAL_MS=900000
 ```
 
-Do not expose these values in Firebase Hosting or any `public/` file.
+Do not expose these values in Firebase Hosting or any `public/` file. Password reset completion uses `firebase-admin` on the Render backend; if the Admin SDK or Firebase project/service account config is missing, the completion endpoint fails safely with 503 instead of changing anything.
 
 ### SMS Notification Operations
 

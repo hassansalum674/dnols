@@ -2,17 +2,24 @@ import { createHash, randomBytes as nodeRandomBytes, timingSafeEqual } from "nod
 import { classifyEmailDomain, extractEmailDomain, normalizeEmail } from "./business-email.js";
 
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
+const RESET_AUTH_TTL_MS = 5 * 60 * 1000;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS_PER_EMAIL = 3;
 const MAX_REQUESTS_PER_IP = 10;
 const MAX_VERIFY_ATTEMPTS = 5;
+const MAX_COMPLETE_ATTEMPTS = 5;
 const CODE_LENGTH = 8;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DIGIT_PATTERN = /[0-9]/;
 const LETTER_PATTERN = /[A-Z]/;
+const LOWERCASE_PATTERN = /[a-z]/;
+const UPPERCASE_PATTERN = /[A-Z]/;
+const SYMBOL_PATTERN = /[^A-Za-z0-9]/;
+const PASSWORD_MIN_LENGTH = 12;
 const GENERIC_START_MESSAGE =
   "If this business email can reset a Dnols dashboard password, a security code was sent.";
 const GENERIC_VERIFY_MESSAGE = "The reset code is incorrect or expired.";
+const GENERIC_COMPLETE_MESSAGE = "The password reset session is incorrect or expired.";
 
 export function createPasswordResetVerifier({
   env = process.env,
@@ -20,8 +27,11 @@ export function createPasswordResetVerifier({
   randomBytes = nodeRandomBytes,
   now = () => Date.now(),
   store = new Map(),
-  rateLimitStore = new Map()
+  rateLimitStore = new Map(),
+  passwordUpdater
 } = {}) {
+  const updateFirebasePassword = passwordUpdater || createFirebasePasswordUpdater({ env });
+
   return {
     async startReset(input = {}) {
       const email = normalizeEmail(input.email);
@@ -54,7 +64,8 @@ export function createPasswordResetVerifier({
         domain,
         codeHash: hashCode(code, challengeId),
         expiresAt,
-        attempts: 0
+        attempts: 0,
+        completeAttempts: 0
       });
 
       const delivery = await sendPasswordResetCodeEmail({
@@ -85,7 +96,7 @@ export function createPasswordResetVerifier({
       const code = normalizeCode(input.code);
       const challenge = store.get(challengeId);
 
-      if (!challenge) {
+      if (!challenge || !challenge.codeHash) {
         return failure(400, "reset_challenge_not_found", GENERIC_VERIFY_MESSAGE);
       }
       if (challenge.expiresAt < now()) {
@@ -105,13 +116,67 @@ export function createPasswordResetVerifier({
         return failure(400, "reset_invalid_code", GENERIC_VERIFY_MESSAGE);
       }
 
-      store.delete(challengeId);
+      const resetToken = randomBytes(32).toString("hex");
+      const resetExpiresAt = now() + RESET_AUTH_TTL_MS;
+      challenge.codeHash = "";
+      challenge.resetTokenHash = hashResetToken(resetToken, challengeId);
+      challenge.expiresAt = resetExpiresAt;
+      challenge.completeAttempts = 0;
+
       return {
         ok: true,
         resetAuthorized: true,
-        businessEmail: challenge.email,
-        businessDomain: challenge.domain,
-        message: "Code verified. Continue with the secure password reset email."
+        resetToken,
+        expiresAt: new Date(resetExpiresAt).toISOString(),
+        message: "Code verified. Enter a new password to finish resetting your account."
+      };
+    },
+
+    async completeReset(input = {}) {
+      const challengeId = String(input.challengeId || "");
+      const resetToken = String(input.resetToken || "");
+      const email = normalizeEmail(input.email);
+      const password = String(input.newPassword ?? input.password ?? "");
+      const challenge = store.get(challengeId);
+
+      if (!challenge || !challenge.resetTokenHash) {
+        return failure(400, "reset_session_not_found", GENERIC_COMPLETE_MESSAGE);
+      }
+      if (challenge.expiresAt < now()) {
+        store.delete(challengeId);
+        return failure(400, "reset_session_expired", GENERIC_COMPLETE_MESSAGE);
+      }
+      if (challenge.email !== email) {
+        return failure(400, "reset_email_mismatch", GENERIC_COMPLETE_MESSAGE);
+      }
+      if (challenge.completeAttempts >= MAX_COMPLETE_ATTEMPTS) {
+        store.delete(challengeId);
+        return failure(429, "reset_too_many_attempts", "Too many incorrect attempts. Request a new code.");
+      }
+
+      if (!safeEqual(challenge.resetTokenHash, hashResetToken(resetToken, challengeId))) {
+        challenge.completeAttempts += 1;
+        return failure(400, "reset_invalid_session", GENERIC_COMPLETE_MESSAGE);
+      }
+
+      const passwordValidation = validateNewPassword(password, {
+        email: challenge.email,
+        domain: challenge.domain
+      });
+      if (!passwordValidation.ok) {
+        return passwordValidation;
+      }
+
+      const update = await updateFirebasePassword({ email: challenge.email, password });
+      if (!update.ok) {
+        return update;
+      }
+
+      store.delete(challengeId);
+      return {
+        ok: true,
+        passwordUpdated: true,
+        message: "Password updated. You can sign in with your new password."
       };
     }
   };
@@ -176,6 +241,119 @@ function hashCode(code, challengeId) {
   return createHash("sha256").update(`${challengeId}:${String(code)}`).digest("hex");
 }
 
+function hashResetToken(token, challengeId) {
+  return createHash("sha256").update(`${challengeId}:reset:${String(token)}`).digest("hex");
+}
+
+function validateNewPassword(password, { email = "", domain = "" } = {}) {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return failure(
+      422,
+      "weak_password",
+      `Use at least ${PASSWORD_MIN_LENGTH} characters with uppercase, lowercase, number, and symbol.`
+    );
+  }
+  if (
+    !LOWERCASE_PATTERN.test(password) ||
+    !UPPERCASE_PATTERN.test(password) ||
+    !DIGIT_PATTERN.test(password) ||
+    !SYMBOL_PATTERN.test(password)
+  ) {
+    return failure(422, "weak_password", "Use uppercase, lowercase, number, and symbol characters.");
+  }
+
+  const lowerPassword = password.toLowerCase();
+  const emailValue = normalizeEmail(email);
+  const disallowedParts = [
+    emailValue,
+    emailValue.split("@")[0],
+    extractEmailDomain(emailValue),
+    domain
+  ].map((part) => clean(part).toLowerCase()).filter((part) => part.length >= 4);
+  if (disallowedParts.some((part) => lowerPassword.includes(part))) {
+    return failure(422, "weak_password", "Do not include your email address or business domain in the new password.");
+  }
+  return { ok: true };
+}
+
+function createFirebasePasswordUpdater({ env = process.env } = {}) {
+  let authPromise;
+  return async ({ email, password }) => {
+    const config = getFirebaseAdminConfig(env);
+    if (!config.enabled) {
+      return failure(
+        503,
+        "firebase_admin_not_configured",
+        "Password updates are not configured on the server yet."
+      );
+    }
+
+    try {
+      if (!authPromise) {
+        authPromise = loadFirebaseAuth(config);
+      }
+      const auth = await authPromise;
+      const user = await auth.getUserByEmail(email);
+      await auth.updateUser(user.uid, { password });
+      if (typeof auth.revokeRefreshTokens === "function") {
+        await auth.revokeRefreshTokens(user.uid);
+      }
+      return { ok: true };
+    } catch (error) {
+      const code = String(error?.code || error?.errorInfo?.code || "");
+      if (code === "auth/user-not-found" || code === "user-not-found") {
+        return { ok: true };
+      }
+      if (code === "auth/invalid-password" || code === "invalid-password") {
+        return failure(422, "weak_password", "Use a stronger new password.");
+      }
+      if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+        return failure(
+          503,
+          "firebase_admin_not_configured",
+          "Password updates are not configured on the server yet."
+        );
+      }
+      return failure(503, "firebase_password_update_failed", "Password could not be updated right now.");
+    }
+  };
+}
+
+async function loadFirebaseAuth(config) {
+  const appModule = await import("firebase-admin/app");
+  const authModule = await import("firebase-admin/auth");
+  const apps = appModule.getApps();
+  const app = apps.length
+    ? appModule.getApp()
+    : appModule.initializeApp(firebaseAdminOptions(appModule, config));
+  return authModule.getAuth(app);
+}
+
+function getFirebaseAdminConfig(env = {}) {
+  const serviceAccountJson = clean(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  return {
+    enabled: Boolean(
+      clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT) ||
+      clean(env.GOOGLE_APPLICATION_CREDENTIALS) ||
+      serviceAccountJson
+    ),
+    projectId: clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT),
+    databaseURL: clean(env.FIREBASE_DATABASE_URL),
+    serviceAccountJson
+  };
+}
+
+function firebaseAdminOptions(appModule, config) {
+  const options = {
+    projectId: config.projectId || undefined,
+    databaseURL: config.databaseURL || undefined
+  };
+  if (config.serviceAccountJson && typeof appModule.cert === "function") {
+    options.credential = appModule.cert(JSON.parse(config.serviceAccountJson));
+  }
+  return options;
+}
+
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -207,6 +385,10 @@ function pruneRateLimits(rateLimitStore, timestamp) {
 
 function cleanIp(value) {
   return String(value ?? "unknown").split(",")[0].trim() || "unknown";
+}
+
+function clean(value) {
+  return String(value ?? "").trim();
 }
 
 function failure(statusCode, error, message) {
