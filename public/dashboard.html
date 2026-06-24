@@ -3465,7 +3465,7 @@
           const fallbackChat = buildOwnerAgentChatResponse(profile, profile.agentConfig || {}, input);
           const chat = await requestOwnerAgentChat(input, fallbackChat);
           const savedAtClient = new Date().toISOString();
-          await createAgentRun(user.uid, {
+          const localRun = {
             ...chat,
             createdAtClient: savedAtClient,
             result: {
@@ -3475,16 +3475,22 @@
               fallbackReason: chat.fallbackReason || "",
               fallbackDetail: chat.fallbackDetail || ""
             }
-          });
+          };
+          const docRef = await createAgentRun(user.uid, localRun);
           await recordAudit("owner_agent_chat", "Owner chatted with agent", {
             topic: chat.topic,
             summary: chat.agentResponse,
             provider: chat.provider || "deterministic",
             fallbackReason: chat.fallbackReason || ""
           });
+          agentRuns.unshift({
+            id: docRef.id,
+            ...localRun
+          });
           event.target.reset();
+          renderAgentChat();
+          renderAgentRuns();
           showStatus("#agentChatStatus", chat.fallbackReason ? `Message sent. Backend fallback: ${displayLabel(chat.fallbackReason)}.` : "Message sent.");
-          await reloadAll();
         } catch (error) {
           showErrorStatus("#agentChatStatus", `Message could not be shown: ${error.message}`);
         }
