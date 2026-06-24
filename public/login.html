@@ -315,9 +315,10 @@
       const signinTab = document.querySelector("#signinTab");
       const businessLabel = document.querySelector("#businessLabel");
       let mode = "signup";
+      let authFlowInProgress = false;
 
       watchUser((user) => {
-        if (user && !new URLSearchParams(window.location.search).has("stay")) {
+        if (user && !authFlowInProgress && !new URLSearchParams(window.location.search).has("stay")) {
           window.location.href = nextUrl();
         }
       });
@@ -328,12 +329,13 @@
       googleBtn.addEventListener("click", async () => {
         googleBtn.disabled = true;
         googleBtn.textContent = "Opening Google...";
+        authFlowInProgress = true;
         try {
           const credentials = await signInWithGoogle();
           const validation = validateBusinessEmail(credentials.user.email);
           if (!validation.valid) {
             await signOutUser();
-            showError(validation.message);
+            showError("Use a Google account with your business email address.");
             return;
           }
           await createOwnerDoc(credentials.user, credentials.user.displayName || credentials.user.email || "Google Business");
@@ -342,6 +344,7 @@
         } catch (error) {
           showError(readableAuthError(error));
         } finally {
+          authFlowInProgress = false;
           googleBtn.disabled = false;
           googleBtn.textContent = "Continue with Google";
         }
@@ -367,6 +370,7 @@
         const data = Object.fromEntries(new FormData(form).entries());
         submitBtn.disabled = true;
         submitBtn.textContent = mode === "signup" ? "Creating..." : "Signing in...";
+        authFlowInProgress = true;
         try {
           const validation = validateBusinessEmail(data.email);
           if (!validation.valid) {
@@ -385,6 +389,7 @@
         } catch (error) {
           showError(readableAuthError(error));
         } finally {
+          authFlowInProgress = false;
           submitBtn.disabled = false;
           submitBtn.textContent = mode === "signup" ? "Create dashboard →" : "Sign in →";
         }
