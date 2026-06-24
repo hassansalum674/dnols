@@ -74,7 +74,7 @@ Set these Render environment variables as needed:
 NODE_ENV=production
 # Primary low-cost AI provider (preferred). Used first when set.
 GROQ_API_KEY=...
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=llama-3.1-8b-instant
 # Second AI provider. Used only if Groq is unset or fails.
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash-lite

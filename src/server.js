@@ -25,6 +25,12 @@ import {
   validateAgentChatContext
 } from "./services/agent-chat.js";
 import { createBusinessEmailVerifier } from "./services/business-email.js";
+import {
+  handleInboundReply,
+  sendDealEvent,
+  sendDealNotifications
+} from "./services/sms-notifier.js";
+import { DEAL_ROLE } from "./services/deal-flow.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const ROOT = process.cwd();
@@ -40,7 +46,7 @@ const ALLOWED_CORS_ORIGINS = new Set([
 ]);
 const LOCAL_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const businessEmailVerifier = createBusinessEmailVerifier();
-const API_VERSION = "agent-gemini-primary-2026-06-24";
+const API_VERSION = "agent-groq-primary-2026-06-24";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -269,6 +275,58 @@ async function route(request, response) {
       fallbackReason: negotiation.fallbackReason,
       fallbackDetail: negotiation.fallbackDetail
     });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sms/notify") {
+    const body = await readRequestJson(request);
+    const deal = body.deal || {};
+    try {
+      if (body.event) {
+        const result = await sendDealEvent({ deal, event: body.event });
+        sendJson(response, 200, { ok: true, ...result });
+        return;
+      }
+      const notifications = Array.isArray(body.notifications)
+        ? body.notifications
+        : body.type
+          ? [{ type: body.type, role: body.role || DEAL_ROLE.SELLER }]
+          : [];
+      if (!notifications.length) {
+        sendJson(response, 400, { ok: false, error: "no_notifications", message: "Provide event, type, or notifications." });
+        return;
+      }
+      const results = await sendDealNotifications({ deal, notifications });
+      sendJson(response, 200, { ok: true, notifications, results });
+    } catch (error) {
+      sendJson(response, 422, {
+        ok: false,
+        error: "sms_notify_failed",
+        message: error instanceof Error ? error.message : "Could not send SMS notification."
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sms/webhook") {
+    const body = await readRequestBody(request);
+    const text = body.text ?? body.message ?? "";
+    const from = body.from ?? body.sender ?? "";
+    const deal = body.deal || (from ? { dealId: body.dealId || body.linkId || "", sender: { phone: from } } : {});
+    const replierRole = body.replierRole === DEAL_ROLE.BUYER ? DEAL_ROLE.BUYER : DEAL_ROLE.SELLER;
+    if (body.deal && from && !dealHasRole(body.deal, replierRole)) {
+      deal[replierRole] = { ...(body.deal[replierRole] || {}), phone: from };
+    }
+    try {
+      const result = await handleInboundReply({ deal, text, replierRole });
+      sendJson(response, 200, { ok: true, from, ...result });
+    } catch (error) {
+      sendJson(response, 200, {
+        ok: false,
+        error: "sms_webhook_failed",
+        message: error instanceof Error ? error.message : "Could not process inbound SMS."
+      });
+    }
     return;
   }
 
@@ -503,6 +561,31 @@ async function readRequestJson(request) {
 
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : {};
+}
+
+async function readRequestBody(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+
+  const contentType = String(request.headers["content-type"] || "");
+  if (contentType.includes("application/json") || raw.startsWith("{") || raw.startsWith("[")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+
+  return Object.fromEntries(new URLSearchParams(raw));
+}
+
+function dealHasRole(deal, role) {
+  const contact = deal?.[role];
+  return Boolean(contact && contact.phone);
 }
 
 async function serveStaticFromDirectory(pathname, rootDirectory, response) {
