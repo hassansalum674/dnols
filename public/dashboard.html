@@ -2033,13 +2033,15 @@
       import { validateBusinessEmail } from "./js/business-email.js";
       import { normalizeEastAfricaPhone } from "./js/phone.js";
 
+      const RENDER_API_ORIGIN = "https://dnols-83jj.onrender.com";
+      const LOCAL_API_FALLBACKS = location.hostname === "localhost" || location.hostname === "127.0.0.1";
       const OWNER_AGENT_CHAT_ENDPOINTS = [
-        "https://dnols-83jj.onrender.com/api/agent-chat",
-        "/api/agent-chat"
+        `${RENDER_API_ORIGIN}/api/agent-chat`,
+        ...(LOCAL_API_FALLBACKS ? ["/api/agent-chat"] : [])
       ];
       const BUSINESS_EMAIL_ENDPOINTS = [
-        "https://dnols-83jj.onrender.com/api/business-email",
-        "/api/business-email"
+        `${RENDER_API_ORIGIN}/api/business-email`,
+        ...(LOCAL_API_FALLBACKS ? ["/api/business-email"] : [])
       ];
       const mobileQuery = window.matchMedia("(max-width: 980px)");
 

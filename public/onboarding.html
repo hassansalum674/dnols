@@ -783,9 +783,10 @@
       const businessEmailStatus = document.querySelector("#businessEmailStatus");
       const review = document.querySelector("#review");
       const plans = document.querySelector("#plans");
+      const RENDER_API_ORIGIN = "https://dnols-83jj.onrender.com";
       const BUSINESS_EMAIL_ENDPOINTS = [
-        "https://dnols-83jj.onrender.com/api/business-email",
-        "/api/business-email"
+        `${RENDER_API_ORIGIN}/api/business-email`,
+        ...(location.hostname === "localhost" || location.hostname === "127.0.0.1" ? ["/api/business-email"] : [])
       ];
       let step = 0;
       let user;
@@ -968,6 +969,10 @@
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload)
             });
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+              throw new Error("Business email backend returned an invalid response.");
+            }
             const result = await response.json();
             if (!response.ok || !result.ok) {
               throw new Error(result.message || "Business email verification failed.");
