@@ -986,45 +986,47 @@
       }
 
       .agent-chat-thread {
-        min-height: 260px;
+        min-height: 340px;
         max-height: 460px;
         overflow-y: auto;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 22px;
         background: var(--surface-2);
-        padding: 14px;
+        padding: 18px;
         display: grid;
-        gap: 12px;
+        gap: 10px;
+        align-content: start;
       }
 
       .chat-bubble {
-        width: min(82%, 720px);
+        width: fit-content;
+        max-width: min(78%, 680px);
         border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 12px 14px;
+        border-radius: 18px;
+        padding: 10px 13px;
         color: var(--text-1);
-        line-height: 1.5;
+        line-height: 1.45;
       }
 
       .chat-bubble.owner {
         justify-self: end;
         border-color: rgba(79, 110, 247, 0.5);
         background: var(--brand-glow);
+        border-bottom-right-radius: 6px;
       }
 
       .chat-bubble.agent {
         justify-self: start;
         background: var(--surface);
+        border-bottom-left-radius: 6px;
       }
 
       .chat-bubble span {
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         color: var(--text-2);
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
       }
 
       .chat-bubble p {
@@ -1042,7 +1044,44 @@
       }
 
       .agent-chat-form {
-        margin-top: 14px;
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: end;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        padding: 8px;
+      }
+
+      .agent-chat-form label {
+        margin: 0;
+      }
+
+      .agent-chat-form textarea {
+        min-height: 44px;
+        max-height: 120px;
+        resize: none;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        padding: 12px 14px;
+      }
+
+      .agent-chat-form textarea:focus {
+        box-shadow: none;
+      }
+
+      .agent-chat-form .btn {
+        min-height: 44px;
+        border-radius: 999px;
+      }
+
+      .chat-clear-note {
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 12px;
       }
 
       .badge {
@@ -1607,18 +1646,16 @@
 
             <article class="panel full-span agent-subpanel" id="agentChatPanel">
               <div class="panel-header-actions">
+                <button class="btn secondary" id="clearAgentChatBtn" type="button">Clear chat</button>
                 <button class="btn secondary" data-agent-menu-return type="button">Back</button>
               </div>
-              <h2>Talk to agent</h2>
+              <h2>Agent chat</h2>
               <div id="agentChatThread" class="agent-chat-thread" aria-live="polite"></div>
               <form id="agentChatForm" class="agent-chat-form">
-                <label>Message
-                  <textarea name="message" placeholder="Ask anything." required></textarea>
-                </label>
-                <div class="item-actions">
-                  <button class="btn" type="submit">Send</button>
-                </div>
+                <textarea name="message" aria-label="Message agent" placeholder="Message agent" required rows="1"></textarea>
+                <button class="btn" type="submit">Send</button>
               </form>
+              <p class="chat-clear-note">Clearing hides this chat view. Audit records stay protected.</p>
               <div id="agentChatStatus" class="status"></div>
             </article>
 
@@ -2155,6 +2192,7 @@
         document.querySelector("#agentMemoryForm").addEventListener("submit", (event) => saveAgentConfigForm(event, "memory", "#agentMemoryStatus"));
         document.querySelector("#agentTestForm").addEventListener("submit", runAgentTest);
         document.querySelector("#agentChatForm").addEventListener("submit", sendOwnerAgentChat);
+        document.querySelector("#clearAgentChatBtn").addEventListener("click", clearOwnerAgentChat);
         document.querySelector("#agentNegotiationTaskForm").addEventListener("submit", runHumanNegotiation);
         document.querySelector("#autofillApprovalBtn").addEventListener("click", autofillApprovalFromDraft);
         document.querySelector("#saveNegotiationInboxBtn").addEventListener("click", saveNegotiationAsInbox);
@@ -2465,8 +2503,10 @@
       }
 
       function renderAgentChat() {
+        const clearedAt = dateToMs(profile.agentChatClearedAtClient);
         const chatRuns = agentRuns
           .filter((run) => run.type === AGENT_RUN_TYPE.OWNER_AGENT_CHAT)
+          .filter((run) => dateToMs(run.createdAtClient || run.createdAt) > clearedAt)
           .slice(0, 8)
           .reverse();
         const thread = document.querySelector("#agentChatThread");
@@ -2475,7 +2515,7 @@
           : `
             <div class="chat-bubble agent">
               <span>Agent</span>
-              <p>Ask anything.</p>
+              <p>Send a message to your agent.</p>
             </div>
           `;
         thread.scrollTop = thread.scrollHeight;
@@ -3437,8 +3477,21 @@
           provider: chat.provider || "deterministic"
         });
         event.target.reset();
-        showStatus("#agentChatStatus", chat.provider === "anthropic" ? "Message saved with Claude assistance." : "Message saved with deterministic guidance.");
+        showStatus("#agentChatStatus", "Message sent.");
         await reloadAll();
+      }
+
+      async function clearOwnerAgentChat() {
+        const clearedAt = new Date().toISOString();
+        await saveOwnerProfile(user.uid, {
+          agentChatClearedAtClient: clearedAt
+        });
+        await recordAudit("owner_agent_chat_cleared", "Agent chat cleared", {
+          clearedAt
+        });
+        profile.agentChatClearedAtClient = clearedAt;
+        renderAgentChat();
+        showStatus("#agentChatStatus", "Chat cleared from this view.");
       }
 
       async function requestOwnerAgentChat(input, fallbackChat) {
@@ -4189,6 +4242,15 @@
       function approvalMode(agentConfig) {
         const threshold = agentConfig.negotiationRules?.approvalRequiredAbove || profile.approvalRequiredAbove;
         return threshold ? `Above ${profile.currency || "USD"} ${threshold}` : "Human";
+      }
+
+      function dateToMs(value) {
+        if (!value) return 0;
+        if (typeof value === "string") return Number(new Date(value)) || 0;
+        if (typeof value === "number") return value;
+        if (typeof value.toDate === "function") return Number(value.toDate()) || 0;
+        if (Number.isFinite(value.seconds)) return value.seconds * 1000;
+        return 0;
       }
 
       function showStatus(selector, message) {
