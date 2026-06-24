@@ -196,9 +196,9 @@ test("agent chat retries safe default model when configured model is rejected", 
     }
   });
 
-  assert.deepEqual(requestedModels, ["bad-model-name", "claude-3-5-haiku-latest"]);
+  assert.deepEqual(requestedModels, ["bad-model-name", "claude-3-5-haiku-20241022"]);
   assert.equal(result.provider, "anthropic");
-  assert.equal(result.model, "claude-3-5-haiku-latest");
+  assert.equal(result.model, "claude-3-5-haiku-20241022");
   assert.match(result.agentResponse, /retrying the safe default model/);
 });
 

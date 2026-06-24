@@ -5,7 +5,7 @@ import {
 } from "../../public/system-logic.js";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL = "claude-3-5-haiku-latest";
+const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 350;
 const DEFAULT_TIMEOUT_MS = 8000;
 const ALLOWED_TOPICS = new Set(["general", "approval", "deal", "order", "publishing", "setup"]);

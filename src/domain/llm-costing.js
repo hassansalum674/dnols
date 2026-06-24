@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 const MAX_TEXT_CHARS = 360;
-const LOW_COST_MODEL = "claude-3-5-haiku-latest";
+const LOW_COST_MODEL = "claude-3-5-haiku-20241022";
 const STATIC_CLAUDE_INSTRUCTIONS = [
   "You are Dnols' low-cost B2B agent assistant.",
   "Return only valid compact JSON.",
