@@ -17,7 +17,13 @@ import { generateManifestFromWebsite } from "./services/website-generator.js";
 import { buildPublicRegistryIndex, buildRobotsTxt, buildSitemap } from "./services/public-index.js";
 import { createCheckout, listPlans } from "./services/payments.js";
 import { executeCapability } from "./services/execution.js";
-import { buildOwnerAgentChat, validateAgentChatContext } from "./services/agent-chat.js";
+import {
+  buildAgentNegotiationDraft,
+  buildAgentRequestEvaluation,
+  buildAgentToAgentNegotiation,
+  buildOwnerAgentChat,
+  validateAgentChatContext
+} from "./services/agent-chat.js";
 import { createBusinessEmailVerifier } from "./services/business-email.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -178,6 +184,84 @@ async function route(request, response) {
       provider: chat.provider,
       model: chat.model,
       fallbackReason: chat.fallbackReason
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/agent-negotiation-draft") {
+    const body = await readRequestJson(request);
+    const userContext = body.userContext || body.user || {};
+    const profile = body.profile || {};
+    const agentConfig = body.agentConfig || profile.agentConfig || {};
+    const input = body.input || body.task || {};
+    const validation = validateAgentChatContext({ profile, agentConfig, userContext });
+    if (!validation.valid) {
+      sendJson(response, validation.statusCode, {
+        ok: false,
+        error: validation.error,
+        message: validation.message
+      });
+      return;
+    }
+    const draft = await buildAgentNegotiationDraft({ profile, agentConfig, input, userContext });
+    sendJson(response, 200, {
+      ok: true,
+      draft,
+      provider: draft.provider,
+      model: draft.model,
+      fallbackReason: draft.fallbackReason
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/agent-request-evaluation") {
+    const body = await readRequestJson(request);
+    const userContext = body.userContext || body.user || {};
+    const profile = body.profile || {};
+    const agentConfig = body.agentConfig || profile.agentConfig || {};
+    const requestPayload = body.request || body.input || {};
+    const validation = validateAgentChatContext({ profile, agentConfig, userContext });
+    if (!validation.valid) {
+      sendJson(response, validation.statusCode, {
+        ok: false,
+        error: validation.error,
+        message: validation.message
+      });
+      return;
+    }
+    const evaluation = await buildAgentRequestEvaluation({ profile, agentConfig, request: requestPayload, userContext });
+    sendJson(response, 200, {
+      ok: true,
+      evaluation,
+      provider: evaluation.provider,
+      model: evaluation.model,
+      fallbackReason: evaluation.fallbackReason
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/agent-to-agent/negotiate") {
+    const body = await readRequestJson(request);
+    const userContext = body.userContext || body.user || {};
+    const profile = body.profile || {};
+    const agentConfig = body.agentConfig || profile.agentConfig || {};
+    const requestPayload = body.request || body.input || {};
+    const validation = validateAgentChatContext({ profile, agentConfig, userContext });
+    if (!validation.valid) {
+      sendJson(response, validation.statusCode, {
+        ok: false,
+        error: validation.error,
+        message: validation.message
+      });
+      return;
+    }
+    const negotiation = await buildAgentToAgentNegotiation({ profile, agentConfig, request: requestPayload, userContext });
+    sendJson(response, 200, {
+      ok: true,
+      negotiation,
+      provider: negotiation.provider,
+      model: negotiation.model,
+      fallbackReason: negotiation.fallbackReason
     });
     return;
   }

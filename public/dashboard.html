@@ -2039,6 +2039,14 @@
         `${RENDER_API_ORIGIN}/api/agent-chat`,
         ...(LOCAL_API_FALLBACKS ? ["/api/agent-chat"] : [])
       ];
+      const AGENT_NEGOTIATION_ENDPOINTS = [
+        `${RENDER_API_ORIGIN}/api/agent-negotiation-draft`,
+        ...(LOCAL_API_FALLBACKS ? ["/api/agent-negotiation-draft"] : [])
+      ];
+      const AGENT_REQUEST_EVALUATION_ENDPOINTS = [
+        `${RENDER_API_ORIGIN}/api/agent-request-evaluation`,
+        ...(LOCAL_API_FALLBACKS ? ["/api/agent-request-evaluation"] : [])
+      ];
       const BUSINESS_EMAIL_ENDPOINTS = [
         `${RENDER_API_ORIGIN}/api/business-email`,
         ...(LOCAL_API_FALLBACKS ? ["/api/business-email"] : [])
@@ -2843,7 +2851,8 @@
           targetName: data.targetName,
           title: `${data.capabilityId} request to ${data.targetName}`
         };
-        const evaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        const fallbackEvaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        const evaluation = await requestAgentRequestEvaluation(requestPayload, fallbackEvaluation);
         const docRef = await createOwnerDealRequest(user.uid, {
           ...requestPayload,
           agentEvaluation: evaluation,
@@ -3433,7 +3442,7 @@
       }
 
       async function requestOwnerAgentChat(input, fallbackChat) {
-        const requestBody = JSON.stringify({
+        const payload = await requestAgentJson(OWNER_AGENT_CHAT_ENDPOINTS, {
           userContext: {
             uid: user.uid,
             email: user.email || ""
@@ -3444,8 +3453,20 @@
             message: input.message || ""
           }
         });
+        if (payload?.ok && payload.chat?.agentResponse) return payload.chat;
 
-        for (const endpoint of OWNER_AGENT_CHAT_ENDPOINTS) {
+        return {
+          ...fallbackChat,
+          provider: "deterministic",
+          model: payload?.model || null,
+          fallbackReason: payload?.fallbackReason || payload?.message || "backend_unavailable"
+        };
+      }
+
+      async function requestAgentJson(endpoints, body) {
+        const requestBody = JSON.stringify(body);
+        let lastPayload = null;
+        for (const endpoint of endpoints) {
           try {
             const response = await fetch(endpoint, {
               method: "POST",
@@ -3459,21 +3480,13 @@
               throw new Error("Agent chat backend unavailable.");
             }
             const payload = await response.json();
-            if (!payload.ok || !payload.chat?.agentResponse) {
-              throw new Error("Agent chat backend returned an invalid response.");
-            }
-            return payload.chat;
+            lastPayload = payload;
+            if (payload.ok) return payload;
           } catch {
             // Try the next backend before falling back to deterministic browser logic.
           }
         }
-
-        return {
-          ...fallbackChat,
-          provider: "deterministic",
-          model: null,
-          fallbackReason: "backend_unavailable"
-        };
+        return lastPayload || { ok: false, fallbackReason: "backend_unavailable" };
       }
 
       async function callBusinessEmailEndpoint(action, body) {
@@ -3637,7 +3650,8 @@
       async function runHumanNegotiation(event) {
         event.preventDefault();
         const input = Object.fromEntries(new FormData(event.target).entries());
-        const draft = buildNegotiationDraft(profile, profile.agentConfig || {}, input);
+        const fallbackDraft = buildNegotiationDraft(profile, profile.agentConfig || {}, input);
+        const draft = await requestAgentNegotiationDraft(input, fallbackDraft);
         currentNegotiationDraft = draft;
         await createAgentRun(user.uid, {
           title: draft.title,
@@ -3651,12 +3665,33 @@
           title: draft.title,
           status: draft.status,
           decisionRecommendation: draft.decisionRecommendation,
-          riskCount: draft.riskFlags.length
+          riskCount: draft.riskFlags.length,
+          provider: draft.provider || "deterministic",
+          fallbackReason: draft.fallbackReason || ""
         });
         renderNegotiationDraft(draft);
         await reloadAll();
         currentNegotiationDraft = draft;
         renderNegotiationDraft(draft);
+      }
+
+      async function requestAgentNegotiationDraft(input, fallbackDraft) {
+        const payload = await requestAgentJson(AGENT_NEGOTIATION_ENDPOINTS, {
+          userContext: {
+            uid: user.uid,
+            email: user.email || ""
+          },
+          profile: compactAgentChatProfile(profile),
+          agentConfig: compactAgentChatConfig(profile.agentConfig || {}),
+          input
+        });
+        if (payload?.ok && payload.draft) return payload.draft;
+        return {
+          ...fallbackDraft,
+          provider: "deterministic",
+          model: null,
+          fallbackReason: payload?.fallbackReason || payload?.message || "backend_unavailable"
+        };
       }
 
       function renderNegotiationDraft(draft) {
@@ -3736,7 +3771,8 @@
           currency: profile.currency || "USD",
           deadline: "2026-07-30"
         };
-        const evaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        const fallbackEvaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
+        const evaluation = await requestAgentRequestEvaluation(requestPayload, fallbackEvaluation);
         await createOwnerRecord(user.uid, "inbox", {
           ...requestPayload,
           agentEvaluation: evaluation,
@@ -3754,6 +3790,25 @@
           summary: evaluation.summary
         });
         await reloadAll();
+      }
+
+      async function requestAgentRequestEvaluation(requestPayload, fallbackEvaluation) {
+        const payload = await requestAgentJson(AGENT_REQUEST_EVALUATION_ENDPOINTS, {
+          userContext: {
+            uid: user.uid,
+            email: user.email || ""
+          },
+          profile: compactAgentChatProfile(profile),
+          agentConfig: compactAgentChatConfig(profile.agentConfig || {}),
+          request: requestPayload
+        });
+        if (payload?.ok && payload.evaluation) return payload.evaluation;
+        return {
+          ...fallbackEvaluation,
+          provider: "deterministic",
+          model: null,
+          fallbackReason: payload?.fallbackReason || payload?.message || "backend_unavailable"
+        };
       }
 
       async function decideInbox(id, decision) {
