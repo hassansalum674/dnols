@@ -275,7 +275,13 @@ test("request evaluation and agent-to-agent negotiation fall back safely", async
     userContext: { uid: "owner-a" },
     request: { requirements: "Need custom terms.", budgetAmount: 500, deadline: "2026-07-01", capabilityId: "service" },
     env: { ANTHROPIC_API_KEY: "bad-key", ANTHROPIC_MODEL: "bad-model" },
-    fetchImpl: async () => ({ ok: false, status: 400 })
+    fetchImpl: async () => ({
+      ok: false,
+      status: 400,
+      async json() {
+        return { error: { type: "invalid_request_error" } };
+      }
+    })
   });
   const negotiation = await buildAgentToAgentNegotiation({
     profile,
@@ -286,7 +292,7 @@ test("request evaluation and agent-to-agent negotiation fall back safely", async
   });
 
   assert.equal(evaluation.provider, "deterministic");
-  assert.equal(evaluation.fallbackReason, "anthropic_bad_request_or_model");
+  assert.equal(evaluation.fallbackReason, "anthropic_request_rejected");
   assert.equal(negotiation.provider, "deterministic");
   assert.equal(negotiation.requiresHumanApproval, true);
 });

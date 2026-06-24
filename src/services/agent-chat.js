@@ -6,6 +6,7 @@ import {
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const FALLBACK_MODEL_CHAIN = ["claude-3-5-haiku-20241022", "claude-3-haiku-20240307"];
 const DEFAULT_MAX_TOKENS = 350;
 const DEFAULT_TIMEOUT_MS = 8000;
 const ALLOWED_TOPICS = new Set(["general", "approval", "deal", "order", "publishing", "setup"]);
@@ -306,11 +307,16 @@ async function requestClaudeJsonForFeature({ env, fetchImpl, timeoutMs, fallback
 
 async function requestClaudeJson({ env, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload }) {
   const apiKey = clean(env.ANTHROPIC_API_KEY);
-  const first = await sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload });
-  if (!first.ok && shouldRetryDefaultModel(first.fallbackReason, model)) {
-    return sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model: DEFAULT_MODEL, maxTokens, temperature, system, payload });
+  const models = [model, ...FALLBACK_MODEL_CHAIN].map(clean).filter(Boolean);
+  const uniqueModels = [...new Set(models)];
+  let lastResult = null;
+  for (const candidateModel of uniqueModels) {
+    const result = await sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model: candidateModel, maxTokens, temperature, system, payload });
+    if (result.ok) return result;
+    lastResult = result;
+    if (!shouldRetryModel(result.fallbackReason)) break;
   }
-  return first;
+  return lastResult || { ok: false, model, fallbackReason: "anthropic_unavailable" };
 }
 
 async function sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, temperature, system, payload }) {
@@ -330,7 +336,11 @@ async function sendClaudeJson({ apiKey, fetchImpl, timeoutMs, model, maxTokens, 
     })
   }, timeoutMs);
   if (!response.ok) {
-    return { ok: false, model, fallbackReason: classifyAnthropicStatus(response.status) };
+    return {
+      ok: false,
+      model,
+      fallbackReason: classifyAnthropicStatus(response.status, await readSafeAnthropicError(response))
+    };
   }
   const data = await response.json();
   const text = data?.content?.find((block) => block?.type === "text")?.text;
@@ -426,10 +436,12 @@ function compactRequest(request = {}) {
   };
 }
 
-function classifyAnthropicStatus(status) {
+function classifyAnthropicStatus(status, errorType = "") {
   if (status === 401 || status === 403) return "anthropic_auth_failed";
   if (status === 404) return "anthropic_model_or_endpoint_not_found";
-  if (status === 400 || status === 422) return "anthropic_bad_request_or_model";
+  if (/not_found|model/i.test(errorType)) return "anthropic_model_or_endpoint_not_found";
+  if (/authentication|permission|forbidden|unauthorized/i.test(errorType)) return "anthropic_auth_failed";
+  if (status === 400 || status === 422) return "anthropic_request_rejected";
   if (status === 429) return "anthropic_rate_limited";
   if (status >= 500) return "anthropic_service_error";
   return "anthropic_unavailable";
@@ -440,12 +452,17 @@ function classifyAnthropicError(error) {
   return "anthropic_unavailable";
 }
 
-function shouldRetryDefaultModel(fallbackReason, model) {
-  return (
-    clean(model) &&
-    clean(model) !== DEFAULT_MODEL &&
-    (fallbackReason === "anthropic_bad_request_or_model" || fallbackReason === "anthropic_model_or_endpoint_not_found")
-  );
+async function readSafeAnthropicError(response) {
+  try {
+    const data = await response.json();
+    return clean(data?.error?.type || data?.type || data?.error);
+  } catch {
+    return "";
+  }
+}
+
+function shouldRetryModel(fallbackReason) {
+  return fallbackReason === "anthropic_request_rejected" || fallbackReason === "anthropic_model_or_endpoint_not_found";
 }
 
 function parseJsonObject(text) {
