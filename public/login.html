@@ -355,7 +355,7 @@
           </label>
           <label>
             Password
-            <input name="password" type="password" minlength="6" placeholder="At least 6 characters" required />
+            <input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="At least 12 characters" required />
           </label>
           <button class="btn" id="submitBtn" type="submit">Create dashboard →</button>
           <button class="link-btn" id="resetBtn" type="button" hidden>Reset password</button>
@@ -375,7 +375,7 @@
         <div class="modal-header">
           <div>
             <h2>Reset password</h2>
-            <p>Enter your business email. We will send an 8-character security code before you choose a new password.</p>
+            <p>Enter the business email attached to your Dnols account. We will send an 8-character security code first.</p>
           </div>
           <button class="icon-btn" id="closeResetDialogBtn" type="button" aria-label="Close reset password dialog">&times;</button>
         </div>
@@ -401,7 +401,21 @@
           <button class="btn" id="verifyResetCodeBtn" type="submit">Verify code</button>
           <button class="link-btn" id="resendResetCodeBtn" type="button">Send a new code</button>
         </form>
-        <form class="code-panel" id="resetPasswordForm" method="dialog" hidden>
+        <p class="security-note">Codes expire quickly and incorrect attempts are limited. A new password form opens only after the code is verified.</p>
+        <div id="resetStatus" class="status"></div>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="newPasswordDialog">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2>Choose new password</h2>
+            <p id="verifiedEmailText">Your code was verified. Enter a new password for this business email.</p>
+          </div>
+          <button class="icon-btn" id="closeNewPasswordDialogBtn" type="button" aria-label="Close new password dialog">&times;</button>
+        </div>
+        <form class="code-panel" id="resetPasswordForm" method="dialog">
           <label>
             New password
             <input
@@ -426,8 +440,8 @@
           </label>
           <button class="btn" id="completeResetBtn" type="submit">Update password</button>
         </form>
-        <p class="security-note">Codes expire quickly and incorrect attempts are limited. Only enter a new password after your code is verified.</p>
-        <div id="resetStatus" class="status"></div>
+        <p class="security-note">This password will be attached to the verified business email only. The reset session expires quickly.</p>
+        <div id="passwordResetStatus" class="status"></div>
       </div>
     </dialog>
 
@@ -450,16 +464,21 @@
       const signupTab = document.querySelector("#signupTab");
       const signinTab = document.querySelector("#signinTab");
       const businessLabel = document.querySelector("#businessLabel");
+      const passwordInput = form.elements.password;
       const resetDialog = document.querySelector("#resetDialog");
+      const newPasswordDialog = document.querySelector("#newPasswordDialog");
       const resetForm = document.querySelector("#resetForm");
       const resetCodeForm = document.querySelector("#resetCodeForm");
       const resetPasswordForm = document.querySelector("#resetPasswordForm");
       const resetStatus = document.querySelector("#resetStatus");
+      const passwordResetStatus = document.querySelector("#passwordResetStatus");
+      const verifiedEmailText = document.querySelector("#verifiedEmailText");
       const sendResetCodeBtn = document.querySelector("#sendResetCodeBtn");
       const verifyResetCodeBtn = document.querySelector("#verifyResetCodeBtn");
       const completeResetBtn = document.querySelector("#completeResetBtn");
       const resendResetCodeBtn = document.querySelector("#resendResetCodeBtn");
       const closeResetDialogBtn = document.querySelector("#closeResetDialogBtn");
+      const closeNewPasswordDialogBtn = document.querySelector("#closeNewPasswordDialogBtn");
       const RENDER_API_ORIGIN = "https://dnols-83jj.onrender.com";
       const RESET_PASSWORD_ENDPOINTS = [
         `${RENDER_API_ORIGIN}/api/password-reset`,
@@ -470,6 +489,7 @@
       let resetChallengeId = "";
       let resetToken = "";
       let resetEmail = "";
+      let verifiedResetEmail = "";
 
       watchUser((user) => {
         if (user && !authFlowInProgress && !new URLSearchParams(window.location.search).has("stay")) {
@@ -507,16 +527,18 @@
       resetBtn.addEventListener("click", () => {
         const email = form.elements.email.value.trim();
         resetForm.elements.resetEmail.value = email;
-        resetCodeForm.hidden = true;
-        resetPasswordForm.hidden = true;
-        resetChallengeId = "";
-        resetToken = "";
-        resetEmail = "";
-        resetStatus.innerHTML = "";
+        resetPasswordState();
         resetDialog.showModal();
       });
 
-      closeResetDialogBtn.addEventListener("click", () => resetDialog.close());
+      closeResetDialogBtn.addEventListener("click", () => {
+        resetPasswordState();
+        resetDialog.close();
+      });
+      closeNewPasswordDialogBtn.addEventListener("click", () => {
+        resetPasswordState();
+        newPasswordDialog.close();
+      });
       resendResetCodeBtn.addEventListener("click", () => requestResetCode());
       resetForm.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -544,6 +566,11 @@
             return;
           }
           if (mode === "signup") {
+            const passwordError = validateNewPassword(data.password, data.password);
+            if (passwordError) {
+              showError(passwordError);
+              return;
+            }
             const credentials = await signUp(data.email, data.password);
             await createOwnerDoc(credentials.user, data.businessName);
             showOk("Dashboard created. Redirecting...");
@@ -567,6 +594,9 @@
         signinTab.classList.toggle("active", mode === "signin");
         businessLabel.hidden = mode === "signin";
         resetBtn.hidden = mode !== "signin";
+        passwordInput.minLength = mode === "signup" ? 12 : 6;
+        passwordInput.placeholder = mode === "signup" ? "At least 12 characters" : "Your dashboard password";
+        passwordInput.autocomplete = mode === "signup" ? "new-password" : "current-password";
         submitBtn.textContent = mode === "signup" ? "Create dashboard →" : "Sign in →";
         status.innerHTML = "";
       }
@@ -587,11 +617,12 @@
           resetChallengeId = result.challengeId;
           resetToken = "";
           resetEmail = validation.email;
+          verifiedResetEmail = "";
           resetCodeForm.hidden = false;
-          resetPasswordForm.hidden = true;
           resetCodeForm.elements.resetCode.value = "";
-          resetPasswordForm.reset();
-          showResetOk(result.message || "If this business email can reset a dashboard password, a code was sent.");
+          passwordResetStatus.innerHTML = "";
+          showResetOk(result.message || "If this business email can reset a dashboard password, a code was sent. Enter the code below.");
+          resetCodeForm.elements.resetCode.focus();
         } catch (error) {
           showResetError(readableResetError(error));
         } finally {
@@ -616,10 +647,15 @@
             code
           });
           resetToken = result.resetToken;
+          verifiedResetEmail = resetEmail;
           resetCodeForm.hidden = true;
-          resetPasswordForm.hidden = false;
+          resetDialog.close();
+          passwordResetStatus.innerHTML = "";
+          resetPasswordForm.reset();
+          verifiedEmailText.textContent = `Code verified for ${verifiedResetEmail}. Enter a new password for this business email.`;
+          newPasswordDialog.showModal();
           resetPasswordForm.elements.newPassword.focus();
-          showResetOk(result.message || "Code verified. Enter a new password.");
+          showPasswordResetOk(result.message || "Code verified. Enter a new password.");
           showOk("Password reset security check passed. Finish by choosing a new password.");
         } catch (error) {
           showResetError(readableResetError(error));
@@ -630,8 +666,8 @@
       }
 
       async function completePasswordReset() {
-        if (!resetChallengeId || !resetEmail || !resetToken) {
-          showResetError("Verify your reset code first.");
+        if (!resetChallengeId || !verifiedResetEmail || !resetToken) {
+          showPasswordResetError("Verify your reset code first.");
           return;
         }
 
@@ -639,7 +675,7 @@
         const confirmPassword = resetPasswordForm.elements.confirmPassword.value;
         const passwordError = validateNewPassword(password, confirmPassword);
         if (passwordError) {
-          showResetError(passwordError);
+          showPasswordResetError(passwordError);
           return;
         }
 
@@ -648,20 +684,24 @@
         try {
           const result = await postToFirstAvailableEndpoint("/complete", {
             challengeId: resetChallengeId,
-            email: resetEmail,
+            email: verifiedResetEmail,
             resetToken,
             newPassword: password
           });
-          showResetOk(result.message || "Password updated. You can sign in with your new password.");
+          showPasswordResetOk(result.message || "Password updated. You can sign in with your new password.");
+          const completedEmail = verifiedResetEmail;
           resetChallengeId = "";
           resetToken = "";
+          resetEmail = "";
+          verifiedResetEmail = "";
           resetCodeForm.hidden = true;
-          resetPasswordForm.hidden = true;
-          form.elements.email.value = resetEmail;
+          resetPasswordForm.reset();
+          newPasswordDialog.close();
+          form.elements.email.value = completedEmail;
           setMode("signin");
           showOk("Password updated. Sign in with your new password.");
         } catch (error) {
-          showResetError(readableResetError(error));
+          showPasswordResetError(readableResetError(error));
         } finally {
           completeResetBtn.disabled = false;
           completeResetBtn.textContent = "Update password";
@@ -721,6 +761,26 @@
 
       function showResetError(message) {
         resetStatus.innerHTML = `<p class="message error">${escapeHtml(message)}</p>`;
+      }
+
+      function showPasswordResetOk(message) {
+        passwordResetStatus.innerHTML = `<p class="message ok">${escapeHtml(message)}</p>`;
+      }
+
+      function showPasswordResetError(message) {
+        passwordResetStatus.innerHTML = `<p class="message error">${escapeHtml(message)}</p>`;
+      }
+
+      function resetPasswordState() {
+        resetChallengeId = "";
+        resetToken = "";
+        resetEmail = "";
+        verifiedResetEmail = "";
+        resetStatus.innerHTML = "";
+        passwordResetStatus.innerHTML = "";
+        resetCodeForm.hidden = true;
+        resetCodeForm.reset();
+        resetPasswordForm.reset();
       }
 
       function readableResetError(error) {
