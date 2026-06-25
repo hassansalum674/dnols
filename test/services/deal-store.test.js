@@ -8,7 +8,8 @@ import {
 import {
   getFirebaseAdminDiagnostics,
   getFirebaseAdminConfig,
-  initializeFirebaseAdminApp
+  initializeFirebaseAdminApp,
+  sanitizeFirebaseAdminError
 } from "../../src/services/firebase-admin.js";
 
 test("memory deal store saves deals and indexes buyer and seller phones", async () => {
@@ -166,4 +167,20 @@ test("Firestore permission failures are mapped to safe Firebase configuration er
   } finally {
     console.error = originalConsoleError;
   }
+});
+
+test("Firebase Admin error sanitizer redacts secret-looking values", () => {
+  const error = new Error("private_key=\"-----BEGIN PRIVATE KEY-----abc-----END PRIVATE KEY-----\" Bearer secret-token");
+  error.code = "permission-denied";
+  error.details = "access_token=ya29.secret-token private_key_id=key-id";
+  error.status = 403;
+
+  const sanitized = sanitizeFirebaseAdminError(error);
+  const serialized = JSON.stringify(sanitized);
+
+  assert.equal(sanitized.code, "permission-denied");
+  assert.equal(sanitized.status, "403");
+  assert.match(sanitized.message, /\[redacted\]/);
+  assert.match(sanitized.details, /\[redacted\]/);
+  assert.doesNotMatch(serialized, /secret-token|PRIVATE KEY|key-id|ya29\./);
 });

@@ -32,7 +32,12 @@ import {
   startDealAndNotify
 } from "./services/sms-notifier.js";
 import { createDealStore } from "./services/deal-store.js";
-import { getFirebaseAdminConfig, getFirebaseAdminDiagnostics } from "./services/firebase-admin.js";
+import {
+  getFirebaseAdminConfig,
+  getFirebaseAdminDiagnostics,
+  loadFirestore,
+  sanitizeFirebaseAdminError
+} from "./services/firebase-admin.js";
 import { runDealReminders, runFounderFeeReminders, startDealReminderInterval } from "./services/deal-reminders.js";
 import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
 import { createPasswordResetVerifier } from "./services/password-reset.js";
@@ -109,6 +114,11 @@ async function route(request, response) {
       ok: true,
       ...getFirebaseAdminDiagnostics(getFirebaseAdminConfig(process.env))
     });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/debug/firestore-probe") {
+    sendJson(response, 200, await runFirestoreProbe());
     return;
   }
 
@@ -641,6 +651,39 @@ async function persistSmsNotifyDeal(deal, notifications = []) {
     lastNotifiedAt: new Date().toISOString(),
     remindedAt: ""
   });
+}
+
+async function runFirestoreProbe() {
+  const config = getFirebaseAdminConfig(process.env);
+  const diagnostics = getFirebaseAdminDiagnostics(config);
+  const checkedAt = new Date().toISOString();
+  let writeOk = false;
+  let readOk = false;
+
+  try {
+    const firestore = await loadFirestore(config);
+    const probeRef = firestore.collection("_debug").doc("firestoreProbe");
+    await probeRef.set({ checkedAt, source: "firestore-probe" }, { merge: true });
+    writeOk = true;
+
+    const snapshot = await probeRef.get();
+    readOk = snapshot.exists && snapshot.get("source") === "firestore-probe";
+
+    return {
+      ok: writeOk && readOk,
+      ...diagnostics,
+      writeOk,
+      readOk
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      ...diagnostics,
+      writeOk,
+      readOk,
+      ...sanitizeFirebaseAdminError(error)
+    };
+  }
 }
 
 async function readRequestJson(request) {

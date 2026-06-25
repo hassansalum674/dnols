@@ -83,6 +83,15 @@ export function getFirebaseAdminDiagnostics(config = {}) {
   };
 }
 
+export function sanitizeFirebaseAdminError(error) {
+  return {
+    code: sanitizeErrorValue(error?.code || error?.errorInfo?.code),
+    message: sanitizeErrorValue(error?.message),
+    details: sanitizeErrorValue(error?.details),
+    status: sanitizeErrorValue(error?.status || error?.statusCode || error?.httpStatus)
+  };
+}
+
 function parseServiceAccountJson(value) {
   const json = clean(value);
   if (!json) return null;
@@ -122,4 +131,18 @@ function resolveCredentialSource(env = {}, serviceAccountJson, serviceAccount = 
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function sanitizeErrorValue(value) {
+  const text = clean(value);
+  if (!text) return undefined;
+  return redactSensitiveText(text).slice(0, 500);
+}
+
+function redactSensitiveText(value) {
+  return value
+    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, "[redacted]")
+    .replace(/("?(?:private_key|private_key_id|client_secret|access_token|refresh_token|id_token|authorization)"?\s*[:=]\s*)("[^"]*"|[^\s,}]+)/gi, "$1[redacted]")
+    .replace(/ya29\.[A-Za-z0-9._-]+/g, "[redacted]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]");
 }
