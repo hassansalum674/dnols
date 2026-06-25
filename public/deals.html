@@ -141,6 +141,15 @@
         gap: 16px;
       }
 
+      .legal-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
       .two-col {
         grid-template-columns: 1fr 1fr;
       }
@@ -329,6 +338,11 @@
           <button class="btn" id="submitBtn" type="submit">Create deal request →</button>
         </form>
         <div id="status" class="status"></div>
+        <div class="legal-links" aria-label="Legal links">
+          <a href="/terms.html">Terms</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+        </div>
       </section>
     </main>
 
@@ -340,6 +354,7 @@
         getFirestore,
         serverTimestamp
       } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-lite.js";
+      import { MANUAL_REVIEW_FIRST_DEALS, dailyDealRequestLimitStatus } from "./risk-controls.js";
 
       const form = document.querySelector("#dealForm");
       const status = document.querySelector("#status");
@@ -364,7 +379,12 @@
 
         try {
           const approvalCode = createApprovalCode();
+          const requestLimit = publicRequestLimitStatus(input.requesterEmail);
+          if (!requestLimit.allowed) {
+            throw new Error("Daily deal request limit reached. Please try again tomorrow or contact the business owner directly.");
+          }
           const saved = await withTimeout(saveDealRequest(input, approvalCode), 15000);
+          incrementPublicRequestCount(input.requesterEmail);
           status.innerHTML = [
             `<p class="message ok">Deal request saved.</p>`,
             `<p class="message">Deal ID: ${escapeHtml(saved.id)}</p>`,
@@ -394,6 +414,7 @@
 
         const amount = Number(clean(input.budgetAmount)) || 0;
         const currency = clean(input.currency).toUpperCase() || "USD";
+        const requestLimit = publicRequestLimitStatus(input.requesterEmail);
         const dealSummary = `${clean(input.requesterName)} requests ${clean(input.capabilityId)} from ${clean(
           input.targetName
         )} with budget ${currency} ${amount} by ${clean(input.deadline)}.`;
@@ -420,6 +441,13 @@
           budget: {
             amount,
             currency
+          },
+          riskControls: {
+            dailyRequestCount: requestLimit.countToday + 1,
+            dailyRequestLimit: requestLimit.limit,
+            manualReviewRequired: true,
+            manualReviewReason: "public_deal_request",
+            firstDealsThreshold: MANUAL_REVIEW_FIRST_DEALS
           },
           dealSummary,
           approval: {
@@ -465,6 +493,21 @@
 
       function clean(value) {
         return String(value ?? "").trim();
+      }
+
+      function publicRequestLimitStatus(email) {
+        const count = Number(localStorage.getItem(publicRequestLimitKey(email)) || "0");
+        return dailyDealRequestLimitStatus(count);
+      }
+
+      function incrementPublicRequestCount(email) {
+        const key = publicRequestLimitKey(email);
+        localStorage.setItem(key, String(Number(localStorage.getItem(key) || "0") + 1));
+      }
+
+      function publicRequestLimitKey(email) {
+        const today = new Date().toISOString().slice(0, 10);
+        return `dnols:dealRequests:${clean(email).toLowerCase()}:${today}`;
       }
 
       function escapeHtml(value) {

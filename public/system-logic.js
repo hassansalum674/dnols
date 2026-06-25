@@ -1,4 +1,10 @@
 import { normalizeEastAfricaPhone } from "./js/phone.js";
+import {
+  RISK_REASONS,
+  dailyDealRequestLimitStatus,
+  requiresManualReviewForNewBusiness,
+  withinHardDealLimit
+} from "./risk-controls.js";
 
 export const PROFILE_STATUS = Object.freeze({
   DRAFT: "draft",
@@ -122,6 +128,10 @@ export function normalizeOnboardingProfile(input, result) {
     registryStatus: REGISTRY_STATUS.NOT_PUBLISHED,
     onboardingCompleted: true,
     onboardingCompletedAtClient: new Date().toISOString(),
+    capabilityAccuracyConfirmed: input.capabilityAccuracyConfirmed === "true" || input.capabilityAccuracyConfirmed === true,
+    capabilityAccuracyConfirmedAtClient: input.capabilityAccuracyConfirmed ? new Date().toISOString() : "",
+    capabilityAccuracyConfirmation:
+      "Business owner confirmed configured capabilities, service areas, pricing rules, delivery terms, and approval limits are accurate.",
     manifest: result?.manifest || {},
     agentProfileDraft: result?.agentProfileDraft || {},
     validation: result?.validation || {},
@@ -205,6 +215,8 @@ export function evaluateDealRequest(profile, agentConfig, request) {
   const amount = numberOrZero(request.budgetAmount || request.budget);
   const approvalThreshold = numberOrZero(rules.approvalRequiredAbove || profile.approvalRequiredAbove);
   const maxDealValue = numberOrZero(rules.maxDealValue || profile.maxDealValue);
+  const hardLimit = withinHardDealLimit(amount, profile, agentConfig);
+  const sellerReview = requiresManualReviewForNewBusiness(profile, request.sellerStats || profile.riskStats || {});
   const requestText = `${request.requirements || ""} ${request.capabilityId || ""}`.toLowerCase();
   const capabilityText = `${capability.name || profile.capabilityName || ""}`.toLowerCase();
   const region = clean(request.region || request.targetRegion || request.deliveryRegion).toLowerCase();
@@ -214,8 +226,11 @@ export function evaluateDealRequest(profile, agentConfig, request) {
   if (approvalThreshold > 0 && amount > approvalThreshold) {
     triggers.push("Budget is above the human approval threshold.");
   }
-  if (maxDealValue > 0 && amount > maxDealValue) {
+  if (!hardLimit.ok || (maxDealValue > 0 && amount > maxDealValue)) {
     triggers.push("Budget is above the maximum agent-negotiated deal value.");
+  }
+  if (sellerReview.required) {
+    triggers.push("Seller is new, unverified, or under manual review before payment instructions can be released.");
   }
   if (region && allowedRegions && !allowedRegions.includes(region)) {
     triggers.push("Request region is outside configured service areas.");
@@ -231,12 +246,20 @@ export function evaluateDealRequest(profile, agentConfig, request) {
   }
 
   const humanApprovalRequired = true;
-  const status = triggers.length ? DEAL_STATUS.PENDING_HUMAN_APPROVAL : DEAL_STATUS.AGENT_REVIEWED;
+  const status = !hardLimit.ok
+    ? DEAL_STATUS.REJECTED
+    : triggers.length
+      ? DEAL_STATUS.PENDING_HUMAN_APPROVAL
+      : DEAL_STATUS.AGENT_REVIEWED;
 
   return {
     status,
     humanApprovalRequired,
     triggers,
+    riskControls: {
+      hardLimit,
+      sellerReview
+    },
     summary: triggers.length
       ? "Agent reviewed this request and found items requiring human approval."
       : "Agent reviewed this request. It is ready for human approval before execution."
@@ -266,6 +289,7 @@ export function buildNegotiationDraft(profile, agentConfig, task) {
     deadline
   };
   const evaluation = evaluateDealRequest(profile, config, requestPayload);
+  const sellerReview = evaluation.riskControls?.sellerReview || requiresManualReviewForNewBusiness(profile, task.sellerStats || profile.riskStats || {});
   const maxDealValue = numberOrZero(rules.maxDealValue || profile.maxDealValue);
   const autoApprovalLimit = numberOrZero(rules.approvalRequiredAbove || profile.approvalRequiredAbove);
   const overMaxDealValue = maxDealValue > 0 && budgetAmount > maxDealValue;
@@ -275,11 +299,12 @@ export function buildNegotiationDraft(profile, agentConfig, task) {
     ...evaluation.triggers,
     ...(overMaxDealValue ? ["Budget is above the maximum configured deal value."] : []),
     ...(overAutoApprovalLimit ? [`Budget is above the ${currency} ${autoApprovalLimit} auto-approval limit; human approval required.`] : []),
+    ...(sellerReview.required ? ["Seller is new, unverified, or under first-deal manual review. Do not release payment instructions yet."] : []),
     ...(missingRequiredInfo ? ["Some required deal fields are missing."] : [])
   ];
   const decisionRecommendation = overMaxDealValue || missingRequiredInfo
     ? DEAL_STATUS.REJECTED
-    : overAutoApprovalLimit
+    : overAutoApprovalLimit || sellerReview.required
       ? DEAL_STATUS.PENDING_HUMAN_APPROVAL
       : DEAL_STATUS.APPROVED;
   const reason = buildNegotiationReason({
@@ -290,6 +315,9 @@ export function buildNegotiationDraft(profile, agentConfig, task) {
     currency,
     deadline,
     riskFlags,
+    riskControls: {
+      sellerReview
+    },
     decisionRecommendation
   });
   const processSteps = [

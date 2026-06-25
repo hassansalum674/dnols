@@ -93,6 +93,8 @@ AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
+# Founder/admin personal phone for management SMS summaries.
+FOUNDER_PHONE=+255712000000
 # Optional persisted SMS deal store. Without this, the service uses memory.
 DEAL_STORE_BACKEND=firestore
 # Optional in-process reminder loop. Prefer Render Cron for production.
@@ -122,6 +124,7 @@ Server SMS endpoints:
 POST /api/sms/notify
 POST /api/sms/webhook
 POST /api/sms/run-reminders
+POST /api/sms/run-fee-reminders
 ```
 
 Start and persist a new deal, then send the seller the first request SMS:
@@ -140,11 +143,24 @@ Start and persist a new deal, then send the seller the first request SMS:
 }
 ```
 
-`POST /api/sms/run-reminders` scans active deals and sends the 2-hour reminder SMS to deals that have `lastNotifiedAt` older than the reminder window and no `remindedAt`. Use Render Cron or another external scheduler to call it. For development only, set `SMS_REMINDER_INTERVAL_ENABLED=true` to run the interval in-process.
+When `FOUNDER_PHONE` is configured, every deal event also sends a separate `DNOLS ADMIN` management summary to the founder: new deal, stalled/no-response reminder, deal closed, and other deal updates. `POST /api/sms/run-reminders` scans active deals and sends the 2-hour reminder SMS to businesses plus a founder stalled-deal summary when due. `POST /api/sms/run-fee-reminders` scans completed deals and sends the founder a fee-unpaid summary after 24 hours if `feeCollectionStatus` is still pending. Use Render Cron or another external scheduler to call reminder endpoints. For development only, set `SMS_REMINDER_INTERVAL_ENABLED=true` to run the 2-hour interval in-process.
 
 The default deal store is in-memory. For production persistence, install/configure `firebase-admin` in the Render service environment and set `DEAL_STORE_BACKEND=firestore` with `FIREBASE_PROJECT_ID` or `GOOGLE_APPLICATION_CREDENTIALS`. The Admin SDK writes server-only `deals` and `dealPhoneIndex` collections; Firestore client rules deny direct browser access.
 
 The business password reset flow also uses the Render service after the emailed 8-character code is verified. To complete password updates server-side, install/configure `firebase-admin` for the Render service and provide `FIREBASE_PROJECT_ID` plus Application Default Credentials via `GOOGLE_APPLICATION_CREDENTIALS`, or provide `FIREBASE_SERVICE_ACCOUNT_JSON` as a secret environment variable. If Admin SDK credentials are absent, the reset code verification still works but the final password update endpoint returns a generic configuration error.
+
+## Risk Controls
+
+Dnols includes code-level safeguards for high-risk deal flows:
+
+- New or unverified sellers remain under manual review during the first 7 days and first 3 completed deals.
+- Deal requests are limited to 5/day in browser-visible flows and carry risk metadata for reviewers.
+- Deals above the configured hard max deal value cannot be auto-approved; AI fallback output is also clamped.
+- SMS replies must include a deal ref when a sender has multiple active deals, and refs must match the sender phone.
+- Counter-offer loops are capped at 3 rounds, then escalated for human handling.
+- SMS failures or skipped provider delivery create dashboard fallback entries on the stored deal notification log.
+
+Code does not replace real-world controls. Business/KYC verification, payment licensing decisions, disputes/refunds, backup operators, and provider outage monitoring still need operational and legal runbooks.
 
 ## Product Surfaces
 

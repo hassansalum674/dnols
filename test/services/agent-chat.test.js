@@ -532,6 +532,10 @@ const orbitProfile = {
   region: "Dar-Nairobi",
   currency: "USD",
   approvalRequiredAbove: 5000,
+  capabilityAccuracyConfirmed: true,
+  businessEmailVerified: true,
+  completedDeals: 3,
+  onboardingCompletedAtClient: "2026-06-01T00:00:00.000Z",
   capabilityName: "Freight forwarding"
 };
 
@@ -548,6 +552,10 @@ const proTenderProfile = {
   region: "East Africa",
   currency: "USD",
   approvalRequiredAbove: 2000,
+  capabilityAccuracyConfirmed: true,
+  businessEmailVerified: true,
+  completedDeals: 3,
+  onboardingCompletedAtClient: "2026-06-01T00:00:00.000Z",
   capabilityName: "Procurement"
 };
 

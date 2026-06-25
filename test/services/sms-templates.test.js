@@ -7,6 +7,7 @@ import {
   renderSmsTemplate,
   sanitizeSmsText
 } from "../../src/services/sms-templates.js";
+import { FOUNDER_SMS_TYPE, renderFounderNotification } from "../../src/services/sms-notifier.js";
 
 const ASCII_ONLY = /^[\x20-\x7E\n]*$/;
 
@@ -49,6 +50,27 @@ test("templates stay under 160 even with very long inputs", () => {
     const message = renderSmsTemplate(type, longData);
     assert.ok(message.length <= SMS_MAX_LENGTH, `${type} length ${message.length} exceeds ${SMS_MAX_LENGTH}`);
   }
+});
+
+test("founder admin templates render management summaries under SMS length", () => {
+  const deal = {
+    dealId: "DNL-2024-0047",
+    status: "initiated",
+    buyer: { name: "ProTender", phone: "+255734000000" },
+    seller: { name: "Orbit Logistics", phone: "+255712000000" },
+    amount: 880
+  };
+
+  for (const type of Object.values(FOUNDER_SMS_TYPE)) {
+    const message = renderFounderNotification(deal, type, { now: new Date("2026-06-14T09:12:00.000Z") });
+    assert.ok(message.length <= SMS_MAX_LENGTH, `${type} length ${message.length} exceeds ${SMS_MAX_LENGTH}`);
+    assert.match(message, ASCII_ONLY, `${type} contains non-ASCII characters`);
+    assert.match(message, /^DNOLS ADMIN:/);
+  }
+
+  assert.match(renderFounderNotification(deal, FOUNDER_SMS_TYPE.NEW_DEAL), /Buyer: ProTender/);
+  assert.match(renderFounderNotification(deal, FOUNDER_SMS_TYPE.DEAL_CLOSED), /Fee due: \$17\.60 \(x2\)/);
+  assert.match(renderFounderNotification(deal, FOUNDER_SMS_TYPE.FEE_UNPAID), /Fee: \$8\.80/);
 });
 
 test("sanitizer strips emoji and normalizes smart punctuation", () => {

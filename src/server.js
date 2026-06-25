@@ -32,7 +32,7 @@ import {
   startDealAndNotify
 } from "./services/sms-notifier.js";
 import { createDealStore } from "./services/deal-store.js";
-import { runDealReminders, startDealReminderInterval } from "./services/deal-reminders.js";
+import { runDealReminders, runFounderFeeReminders, startDealReminderInterval } from "./services/deal-reminders.js";
 import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
 import { createPasswordResetVerifier } from "./services/password-reset.js";
 
@@ -344,6 +344,22 @@ async function route(request, response) {
         ok: false,
         error: "sms_reminders_failed",
         message: error instanceof Error ? error.message : "Could not run SMS reminders."
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sms/run-fee-reminders") {
+    const body = await readRequestBody(request);
+    const windowMs = Number(body.windowMs || 0) || undefined;
+    try {
+      const result = await runFounderFeeReminders({ store: dealStore, windowMs });
+      sendJson(response, 200, { ok: true, ...result });
+    } catch (error) {
+      sendJson(response, 422, {
+        ok: false,
+        error: "sms_fee_reminders_failed",
+        message: error instanceof Error ? error.message : "Could not run fee reminder SMS notifications."
       });
     }
     return;

@@ -1992,6 +1992,16 @@
               </div>
             </article>
 
+            <article class="panel">
+              <h2>Legal</h2>
+              <div class="list">
+                <article class="item">
+                  <strong>Policies</strong>
+                  <p><a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a> · <a href="/disclaimer.html">Disclaimer</a></p>
+                </article>
+              </div>
+            </article>
+
           </div>
         </section>
 
@@ -2073,6 +2083,10 @@
       import { mobileSectionIds, routeIndex, sections } from "./js/dashboard/navigation.js";
       import { validateBusinessEmail } from "./js/business-email.js";
       import { normalizeEastAfricaPhone } from "./js/phone.js";
+      import {
+        MANUAL_REVIEW_FIRST_DEALS,
+        dailyDealRequestLimitStatus
+      } from "./risk-controls.js";
 
       const RENDER_API_ORIGIN = "https://dnols-83jj.onrender.com";
       const LOCAL_API_FALLBACKS = location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -2891,24 +2905,52 @@
       async function saveSentRequest(event) {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(event.target).entries());
+        const requestLimit = dailyDealRequestLimitStatus(countSentRequestsToday());
+        if (!requestLimit.allowed) {
+          showStatus("#sentStatus", `Daily deal request limit reached (${requestLimit.limit}/day). Please review today’s requests before adding more.`, true);
+          return;
+        }
+        const manualReviewRequired = sent.length < MANUAL_REVIEW_FIRST_DEALS;
         const requestPayload = {
           ...data,
           requesterOwnerUid: user.uid,
           requesterName: profile.businessName || account.businessName || user.email,
           targetName: data.targetName,
-          title: `${data.capabilityId} request to ${data.targetName}`
+          title: `${data.capabilityId} request to ${data.targetName}`,
+          sellerStats: {
+            completedDeals: profile.completedDeals || profile.transactionCount || 0
+          }
         };
         const fallbackEvaluation = evaluateDealRequest(profile, profile.agentConfig || {}, requestPayload);
         const evaluation = await requestAgentRequestEvaluation(requestPayload, fallbackEvaluation);
         const docRef = await createOwnerDealRequest(user.uid, {
           ...requestPayload,
           agentEvaluation: evaluation,
-          status: evaluation.status
+          status: manualReviewRequired ? DEAL_STATUS.PENDING_HUMAN_APPROVAL : evaluation.status,
+          riskControls: {
+            dailyRequestCount: requestLimit.countToday + 1,
+            dailyRequestLimit: requestLimit.limit,
+            manualReviewRequired,
+            manualReviewReason: manualReviewRequired ? "first_deals_manual_review" : "",
+            firstDealsThreshold: MANUAL_REVIEW_FIRST_DEALS
+          },
+          submittedAtClient: new Date().toISOString()
         });
         await recordAudit("deal_request_sent", "Deal request sent", { targetName: data.targetName, status: evaluation.status, summary: evaluation.summary });
         showStatus("#sentStatus", "Request saved.");
         event.target.reset();
         await reloadAll();
+      }
+
+      function countSentRequestsToday() {
+        const today = new Date().toISOString().slice(0, 10);
+        return sent.filter((item) => itemDateKey(item) === today).length;
+      }
+
+      function itemDateKey(item = {}) {
+        if (item.submittedAtClient) return String(item.submittedAtClient).slice(0, 10);
+        if (typeof item.createdAt?.toDate === "function") return item.createdAt.toDate().toISOString().slice(0, 10);
+        return String(item.createdAt || "").slice(0, 10);
       }
 
       async function saveApprovalForm(event) {

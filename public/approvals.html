@@ -134,6 +134,15 @@
         gap: 16px;
       }
 
+      .legal-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
       label {
         display: grid;
         gap: 8px;
@@ -283,6 +292,11 @@
           <button class="btn" id="submitBtn" type="submit">Save approval decision →</button>
         </form>
         <div id="status" class="status"></div>
+        <div class="legal-links" aria-label="Legal links">
+          <a href="/terms.html">Terms</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+        </div>
       </section>
     </main>
 

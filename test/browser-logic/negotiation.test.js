@@ -16,6 +16,10 @@ test("human negotiation draft autofills approval-safe fields", () => {
       currency: "USD",
       maxDealValue: 1000,
       approvalRequiredAbove: 250,
+      capabilityAccuracyConfirmed: true,
+      businessEmailVerified: true,
+      completedDeals: 3,
+      onboardingCompletedAtClient: "2026-06-01T00:00:00.000Z",
       capabilityName: "Service request"
     },
     {
@@ -61,6 +65,10 @@ test("human negotiation draft auto-approves within the auto-approval limit", () 
       currency: "USD",
       maxDealValue: 1000,
       approvalRequiredAbove: 250,
+      capabilityAccuracyConfirmed: true,
+      businessEmailVerified: true,
+      completedDeals: 3,
+      onboardingCompletedAtClient: "2026-06-01T00:00:00.000Z",
       capabilityName: "Service request"
     },
     {
@@ -80,6 +88,66 @@ test("human negotiation draft auto-approves within the auto-approval limit", () 
   );
 
   assert.equal(draft.approvalFields.decision, DEAL_STATUS.APPROVED);
+});
+
+test("human negotiation draft gates new sellers and rejects hard deal limit breaches", () => {
+  const newSellerDraft = buildNegotiationDraft(
+    {
+      businessName: "New Seller",
+      region: "East Africa",
+      currency: "USD",
+      maxDealValue: 1000,
+      approvalRequiredAbove: 500,
+      capabilityName: "Service request"
+    },
+    {
+      capability: { name: "Service request", requiresConfirmation: true },
+      negotiationRules: { maxDealValue: 1000, approvalRequiredAbove: 500, currencies: "USD" },
+      memory: { serviceAreas: "East Africa" }
+    },
+    {
+      targetName: "Acme Buyer",
+      capability: "Service request",
+      budgetAmount: 200,
+      currency: "USD",
+      region: "East Africa",
+      deadline: "2026-07-30",
+      request: "Please prepare a service quote."
+    }
+  );
+
+  const overLimitDraft = buildNegotiationDraft(
+    {
+      businessName: "Verified Seller",
+      region: "East Africa",
+      currency: "USD",
+      maxDealValue: 1000,
+      approvalRequiredAbove: 500,
+      capabilityAccuracyConfirmed: true,
+      businessEmailVerified: true,
+      completedDeals: 3,
+      onboardingCompletedAtClient: "2026-06-01T00:00:00.000Z",
+      capabilityName: "Service request"
+    },
+    {
+      capability: { name: "Service request", requiresConfirmation: true },
+      negotiationRules: { maxDealValue: 1000, approvalRequiredAbove: 500, currencies: "USD" },
+      memory: { serviceAreas: "East Africa" }
+    },
+    {
+      targetName: "Acme Buyer",
+      capability: "Service request",
+      budgetAmount: 1500,
+      currency: "USD",
+      region: "East Africa",
+      deadline: "2026-07-30",
+      request: "Please prepare a service quote."
+    }
+  );
+
+  assert.equal(newSellerDraft.decisionRecommendation, DEAL_STATUS.PENDING_HUMAN_APPROVAL);
+  assert.ok(newSellerDraft.riskFlags.some((flag) => flag.includes("new, unverified")));
+  assert.equal(overLimitDraft.decisionRecommendation, DEAL_STATUS.REJECTED);
 });
 
 test("human negotiation draft recommends rejection when required fields are missing", () => {

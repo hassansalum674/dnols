@@ -11,7 +11,8 @@ export const SMS_TYPE = Object.freeze({
   DEAL_REMINDER: "deal_reminder",
   WELCOME: "welcome",
   DISPUTE_OPENED: "dispute_opened",
-  NOT_UNDERSTOOD: "not_understood"
+  NOT_UNDERSTOOD: "not_understood",
+  WHICH_DEAL: "which_deal"
 });
 
 export const SMS_SENDER_ID = "DNOLS";
@@ -145,6 +146,16 @@ const TEMPLATE_BUILDERS = {
       "Reply YES, NO, COUNTER, PAID,",
       "RECEIVED or DISPUTE.",
       `Help: dnols.app/help/${ref(d.dealId)}`
+    ].join("\n"),
+
+  [SMS_TYPE.WHICH_DEAL]: (d) =>
+    [
+      "DNOLS: Which deal?",
+      "",
+      "Reply with action and Ref.",
+      `Example: YES ${ref(d.dealId)}`,
+      "",
+      "Check dnols.app/deals"
     ].join("\n")
 };
 

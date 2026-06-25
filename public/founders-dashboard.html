@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Founders Command Center - Dnols</title>
+    <meta name="description" content="Internal Dnols founders command center for outreach, deals, contacts, messages, analytics, and settings." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Syne:wght@700&display=swap" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+    <style>
+      :root {
+        --bg: #05060A;
+        --surface: #0D0F18;
+        --surface-2: #13162A;
+        --border: rgba(255,255,255,0.08);
+        --brand: #4F6EF7;
+        --brand-glow: rgba(79,110,247,0.12);
+        --accent: #00E5C3;
+        --danger: #F75F4F;
+        --warning: #F7A94F;
+        --success: #1D9E75;
+        --text-1: #F0F1F5;
+        --text-2: #8A8FA8;
+        --text-3: #4A4F68;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text-1); }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background:
+          radial-gradient(circle at 80% 0%, var(--brand-glow), transparent 32rem),
+          radial-gradient(circle at 30% 100%, rgba(0,229,195,0.08), transparent 28rem),
+          var(--bg);
+      }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      h1, h2, h3, .number, .wordmark, .metric-number { font-family: "Syne", system-ui, sans-serif; font-weight: 700; }
+      h1, h2, h3, p { margin-top: 0; }
+      a { color: inherit; }
+
+      .auth-gate {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .auth-card {
+        width: min(430px, 100%);
+        background: rgba(13,15,24,0.94);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 26px;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.36);
+      }
+      .auth-card h1 {
+        margin-bottom: 10px;
+        letter-spacing: -0.05em;
+      }
+      .auth-card p {
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+      .auth-status {
+        min-height: 20px;
+        margin-top: 10px;
+        color: var(--danger);
+        font-size: 13px;
+      }
+      .app.locked { display: none; }
+
+      .app { display: flex; min-height: 100vh; }
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 220px;
+        padding: 22px 14px;
+        background: rgba(13,15,24,0.92);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        z-index: 20;
+      }
+      .wordmark { display: flex; align-items: center; gap: 7px; font-size: 26px; letter-spacing: -0.04em; }
+      .wordmark-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 18px var(--brand); }
+      .date-pill {
+        align-self: flex-start;
+        margin: 14px 0 22px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-2);
+        background: var(--surface-2);
+        font-size: 12px;
+      }
+      .nav { display: grid; gap: 6px; }
+      .nav-item {
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-2);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 11px;
+        text-align: left;
+      }
+      .nav-item:hover { background: var(--surface-2); color: var(--text-1); }
+      .nav-item.active { background: var(--brand); color: white; }
+      .nav-icon { width: 19px; height: 19px; flex: 0 0 auto; }
+      .founders { margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border); }
+      .founder-label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; }
+      .founder-stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+      .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text-1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Syne", system-ui, sans-serif;
+      }
+      .avatar.active { outline: 2px solid var(--brand); outline-offset: 2px; }
+      .avatar.small { width: 26px; height: 26px; font-size: 12px; }
+      .avatar.tiny { width: 22px; height: 22px; font-size: 11px; }
+
+      .main {
+        margin-left: 220px;
+        width: calc(100% - 220px);
+        padding: 28px;
+      }
+      .page { display: none; }
+      .page.active { display: block; }
+      .page-head { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 22px; }
+      .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 8px; }
+      .page-title { margin: 0; font-size: clamp(28px, 4vw, 48px); letter-spacing: -0.05em; }
+      .muted { color: var(--text-2); }
+
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+      .metric-card, .panel, .deal-card, .contact-card, .table-wrap, .chart-card {
+        background: rgba(13,15,24,0.86);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .metric-card { padding: 18px; }
+      .metric-number { font-size: 32px; line-height: 1; margin-bottom: 8px; }
+      .metric-label { color: var(--text-2); font-size: 13px; }
+      .overview-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+      .panel { padding: 18px; min-width: 0; }
+      .panel h2 { margin-bottom: 14px; font-size: 21px; }
+
+      .priority-list, .feed, .deal-list, .sms-list, .chat-list { display: grid; gap: 10px; }
+      .priority-row, .feed-item, .sms-row {
+        display: grid;
+        gap: 8px;
+        padding: 13px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(19,22,42,0.58);
+      }
+      .priority-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .company-name { font-weight: 500; color: var(--text-1); }
+      .pill, .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 999px;
+        padding: 5px 8px;
+        font-size: 11px;
+        line-height: 1;
+        border: 1px solid var(--border);
+        color: var(--text-2);
+        background: var(--surface-2);
+        white-space: nowrap;
+      }
+      .badge.called, .badge.blue { background: rgba(79,110,247,0.14); color: var(--brand); }
+      .badge.follow_up, .badge.warning { background: rgba(247,169,79,0.13); color: var(--warning); }
+      .badge.interested, .badge.onboarded, .badge.success { background: rgba(29,158,117,0.14); color: var(--success); }
+      .badge.not_interested, .badge.danger { background: rgba(247,95,79,0.12); color: var(--danger); }
+      .badge.uncalled { color: var(--text-2); }
+      .btn {
+        border: 0;
+        border-radius: 9px;
+        background: var(--brand);
+        color: white;
+        padding: 9px 12px;
+        font-weight: 500;
+      }
+      .btn.secondary { background: var(--surface-2); color: var(--text-1); border: 1px solid var(--border); }
+      .btn.ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
+      .btn.danger { background: var(--danger); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); flex: 0 0 auto; }
+      .dot.success { background: var(--success); }
+      .dot.warning { background: var(--warning); }
+      .dot.danger { background: var(--danger); }
+      .dot.brand { background: var(--brand); }
+
+      .toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) 180px 180px auto; gap: 10px; margin-bottom: 14px; }
+      .input, input, select, textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-1);
+        border-radius: 9px;
+        padding: 10px 11px;
+        outline: none;
+      }
+      textarea { min-height: 96px; resize: vertical; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+      th, td { text-align: left; padding: 13px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { color: var(--text-2); font-size: 12px; font-weight: 500; }
+      td { color: var(--text-1); font-size: 13px; }
+      tr.company-row { transition: background 0.2s ease; }
+      tr.company-row:hover { background: rgba(19,22,42,0.45); }
+      tr.follow_up { box-shadow: inset 3px 0 0 var(--warning); }
+      tr.interested { box-shadow: inset 3px 0 0 var(--success); }
+      tr.onboarded { box-shadow: inset 3px 0 0 var(--brand); }
+      tr.not_interested { color: var(--text-3); opacity: 0.64; }
+      .notes-short { color: var(--text-2); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .expand-row td { background: rgba(19,22,42,0.4); color: var(--text-2); }
+      .history { display: grid; gap: 8px; }
+      .history-item { border-left: 2px solid var(--brand); padding-left: 10px; }
+
+      .deal-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+      .deal-card { padding: 16px; display: grid; gap: 12px; }
+      .deal-top, .deal-meta, .card-row { display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+      .timeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+      .stage { height: 7px; background: var(--surface-2); border-radius: 999px; }
+      .stage.filled { background: var(--brand); box-shadow: 0 0 16px var(--brand-glow); }
+
+      .contacts-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .contact-card { padding: 16px; display: grid; gap: 10px; }
+      .contact-title { display: flex; align-items: center; gap: 10px; }
+      .contact-title h3 { margin: 0; font-size: 18px; }
+      .icon-line { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 13px; }
+      .side-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(430px, 92vw);
+        height: 100vh;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        transform: translateX(105%);
+        transition: transform 0.22s ease;
+        z-index: 40;
+        padding: 24px;
+        overflow-y: auto;
+      }
+      .side-panel.open { transform: translateX(0); }
+
+      .message-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .chat-list { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+      .chat-message { display: grid; grid-template-columns: 34px 1fr; gap: 10px; }
+      .bubble { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+      .bubble small { color: var(--text-3); }
+      .chat-form { display: flex; gap: 8px; margin-top: 12px; }
+      .sms-row.failed { box-shadow: inset 3px 0 0 var(--danger); }
+
+      .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+      .chart-card { padding: 16px; min-height: 320px; }
+      .leaderboard { margin-top: 16px; }
+
+      .settings-grid { display: grid; gap: 16px; }
+      .founder-form { display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+      .switch-list { display: grid; gap: 10px; }
+      .switch-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+      .switch { width: 46px; height: 26px; border: 0; border-radius: 999px; background: var(--text-3); padding: 3px; }
+      .switch::before { content: ""; display: block; width: 20px; height: 20px; border-radius: 50%; background: white; transition: transform 0.18s ease; }
+      .switch.on { background: var(--brand); }
+      .switch.on::before { transform: translateX(20px); }
+
+      .modal-host {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 220px;
+        z-index: 35;
+        display: none;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(5,6,10,0.72);
+      }
+      .modal-host.open { display: flex; }
+      .modal {
+        width: min(560px, 100%);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+      }
+      .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .field { display: grid; gap: 6px; margin-bottom: 12px; }
+      label { color: var(--text-2); font-size: 12px; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+      .toast-stack { position: fixed; right: 22px; bottom: 22px; display: grid; gap: 10px; z-index: 60; }
+      .toast { padding: 12px 14px; border-radius: 10px; color: white; box-shadow: 0 12px 34px rgba(0,0,0,0.26); animation: fadeToast 3s ease forwards; }
+      .toast.success { background: var(--success); }
+      .toast.error { background: var(--danger); }
+      @keyframes fadeToast { 0%, 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(8px); } }
+
+      .hidden { display: none !important; }
+      .nowrap { white-space: nowrap; }
+      .right { text-align: right; }
+
+      @media (max-width: 1100px) {
+        .metrics, .contacts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .overview-grid, .message-grid, .charts { grid-template-columns: 1fr; }
+        .toolbar { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 768px) {
+        .sidebar {
+          width: 100%;
+          height: 66px;
+          top: auto;
+          padding: 7px 8px;
+          border-right: 0;
+          border-top: 1px solid var(--border);
+          flex-direction: row;
+          align-items: center;
+        }
+        .wordmark, .date-pill, .founders { display: none; }
+        .nav { width: 100%; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .nav-item { justify-content: center; padding: 10px 4px; }
+        .nav-item span:not(.nav-icon) { display: none; }
+        .main { margin-left: 0; width: 100%; padding: 20px 14px 86px; }
+        .modal-host { left: 0; bottom: 66px; }
+        .metrics, .contacts-grid, .toolbar, .field-grid, .founder-form { grid-template-columns: 1fr; }
+        .page-head { display: block; }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="auth-gate" id="authGate" aria-label="Founder dashboard login">
+      <form class="auth-card" id="authForm">
+        <div class="eyebrow">Restricted internal tool</div>
+        <h1>Founders Command Center</h1>
+        <p>Enter the founders password to unlock this session. The page locks after inactivity and after refresh unless the session is still active.</p>
+        <div class="field">
+          <label for="founderPassword">Password</label>
+          <input id="founderPassword" type="password" autocomplete="current-password" required autofocus />
+        </div>
+        <button class="btn" type="submit">Unlock Dashboard</button>
+        <div class="auth-status" id="authStatus" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <div class="app locked" id="commandApp" aria-hidden="true">
+      <aside class="sidebar" aria-label="Founders navigation">
+        <div class="wordmark"><span class="wordmark-dot"></span>Dnols</div>
+        <div class="date-pill" id="todayPill">Thu 25 Jun</div>
+        <nav class="nav" id="nav"></nav>
+        <div class="founders">
+          <div class="founder-label">Active founder</div>
+          <div class="founder-stack" id="founderStack"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="page active" id="page-overview">
+          <div class="page-head">
+            <div>
+              <div class="eyebrow">War room</div>
+              <h1 class="page-title">Founders Command Center</h1>
+            </div>
+            <p class="muted" id="activeFounderLine">Viewing Hassan perspective</p>
+            <button class="btn secondary" id="lockDashboardBtn" type="button">Lock</button>
+          </div>
+          <div class="metrics" id="overviewMetrics"></div>
+          <div class="overview-grid">
+            <div class="panel">
+              <h2>Today's Priority</h2>
+              <div class="priority-list" id="priorityList"></div>
+            </div>
+            <div class="panel">
+              <h2>Deal Activity</h2>
+              <div class="feed" id="dealFeed"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-outreach">
+          <div class="page-head">
+            <div>
+              <div class="eyebrow">No duplicate calls</div>
+              <h1 class="page-title">Outreach</h1>
+            </div>
+          </div>
+          <div class="toolbar">
+            <input class="input" id="outreachSearch" placeholder="Search company, city, contact, phone..." />
+            <select id="statusFilter"></select>
+            <select id="founderFilter"></select>
+            <button class="btn" id="addCompanyBtn" type="button">Add Company</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company Name</th><th>Industry</th><th>Location</th><th>Contact Name</th><th>Phone Number</th><th>Assigned To</th><th>Last Called</th><th>Status</th><th>Notes</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="outreachRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="page" id="page-deals">
+          <div class="page-head"><div><div class="eyebrow">Platform monitor</div><h1 class="page-title">Deals</h1></div></div>
+          <div class="deal-filters" id="dealFilters"></div>
+          <div class="deal-list" id="dealList"></div>
+        </section>
+
+        <section class="page" id="page-contacts">
+          <div class="page-head"><div><div class="eyebrow">Relationship base</div><h1 class="page-title">Contacts</h1></div></div>
+          <div class="toolbar" style="grid-template-columns: minmax(180px,1fr) 220px;">
+            <input class="input" id="contactSearch" placeholder="Search contacts..." />
+            <select id="contactFilter">
+              <option value="all">All</option><option value="ONBOARDED">Onboarded</option><option value="INTERESTED">Interested</option><option value="LEADS">Leads</option><option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+          <div class="contacts-grid" id="contactsGrid"></div>
+        </section>
+
+        <section class="page" id="page-messages">
+          <div class="page-head"><div><div class="eyebrow">Comms</div><h1 class="page-title">Messages</h1></div></div>
+          <div class="message-grid">
+            <div class="panel">
+              <h2>Founder Chat</h2>
+              <div class="chat-list" id="chatList"></div>
+              <form class="chat-form" id="chatForm">
+                <input class="input" id="chatInput" placeholder="Message the founders..." required />
+                <button class="btn" type="submit">Send</button>
+              </form>
+            </div>
+            <div class="panel">
+              <div class="card-row"><h2>SMS Log</h2><select id="smsFilter" style="width: 160px;"><option>All</option><option>Delivered</option><option>Failed</option><option>Today</option><option>This Week</option></select></div>
+              <div class="sms-list" id="smsLog"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-analytics">
+          <div class="page-head"><div><div class="eyebrow">Signals</div><h1 class="page-title">Analytics</h1></div></div>
+          <div class="metrics" id="analyticsMetrics"></div>
+          <div class="charts">
+            <div class="chart-card"><h2>Calls per day</h2><canvas id="callsChart"></canvas></div>
+            <div class="chart-card"><h2>Deal status breakdown</h2><canvas id="dealsChart"></canvas></div>
+          </div>
+          <div class="table-wrap leaderboard">
+            <table>
+              <thead><tr><th>Founder</th><th>Calls Made</th><th>Companies Onboarded</th><th>Deals Triggered</th><th>Fees Collected</th></tr></thead>
+              <tbody id="leaderboardRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="page-head"><div><div class="eyebrow">Controls</div><h1 class="page-title">Settings</h1></div></div>
+          <div class="settings-grid">
+            <div class="panel"><h2>Founder Profiles</h2><div id="profileForms"></div></div>
+            <div class="panel"><h2>Notifications</h2><div class="switch-list" id="notificationToggles"></div></div>
+            <div class="panel"><h2>Data</h2><button class="btn secondary" id="exportContacts" type="button">Export all contacts as CSV</button> <button class="btn secondary" id="exportDeals" type="button">Export all deals as CSV</button></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-host" id="modalHost">
+      <form class="modal" id="callForm">
+        <h2>Log Call</h2>
+        <input type="hidden" id="callCompanyId" />
+        <div class="field"><label>Company</label><input id="callCompanyName" readonly /></div>
+        <div class="field-grid">
+          <div class="field"><label>Called by</label><input id="callFounder" readonly /></div>
+          <div class="field"><label>Call date/time</label><input id="callDateTime" type="datetime-local" required /></div>
+        </div>
+        <div class="field"><label>Outcome</label><select id="callOutcome"><option>Interested - wants demo</option><option>Interested - needs follow up</option><option>Not interested</option><option>No answer - try again</option><option>Wrong number</option><option>Already using a competitor</option></select></div>
+        <div class="field"><label>Notes</label><textarea id="callNotes" placeholder="What did they say? Any specific pain points?"></textarea></div>
+        <div class="field hidden" id="followUpField"><label>Follow up date</label><input id="followUpDate" type="date" /></div>
+        <div class="modal-actions"><button class="btn secondary" id="cancelCall" type="button">Cancel</button><button class="btn" type="submit">Save</button></div>
+      </form>
+    </div>
+
+    <aside class="side-panel" id="contactPanel"></aside>
+    <div class="toast-stack" id="toastStack"></div>
+
+    <script>
+      const STORAGE_KEY = "dnols_founders_command_center_v1";
+      const AUTH_SESSION_KEY = "dnols_founders_command_center_unlocked_until";
+      const AUTH_ATTEMPT_KEY = "dnols_founders_command_center_attempts";
+      const AUTH_LOCK_KEY = "dnols_founders_command_center_locked_until";
+      const PASSWORD_HASH_HEX = "ca59cf99d845710a61bb82ed0a5a91b0ceb41a0dcb1ba4df80c5391818616779";
+      const PASSWORD_SALT = "dnols-founders-command-center-v1";
+      const PASSWORD_ITERATIONS = 210000;
+      const AUTH_SESSION_MS = 30 * 60 * 1000;
+      const AUTH_IDLE_MS = 15 * 60 * 1000;
+      const AUTH_LOCK_MS = 5 * 60 * 1000;
+      const pages = ["overview", "outreach", "deals", "contacts", "messages", "analytics", "settings"];
+      const navItems = [
+        ["overview", "ti-layout-dashboard", "Overview"],
+        ["outreach", "ti-phone-call", "Outreach"],
+        ["deals", "ti-file-text", "Deals"],
+        ["contacts", "ti-users", "Contacts"],
+        ["messages", "ti-message-circle", "Messages"],
+        ["analytics", "ti-chart-bar", "Analytics"],
+        ["settings", "ti-settings", "Settings"]
+      ];
+      const statusLabels = {
+        UNCALLED: "UNCALLED",
+        CALLED: "CALLED",
+        FOLLOW_UP: "FOLLOW UP",
+        INTERESTED: "INTERESTED",
+        NOT_INTERESTED: "NOT INTERESTED",
+        ONBOARDED: "ONBOARDED"
+      };
+      let state = loadState();
+      let activePage = "overview";
+      let callsChart;
+      let dealsChart;
+      let idleTimer;
+      let appBound = false;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        bindAuth();
+        if (isUnlocked()) unlockApp(false);
+      });
+
+      function bindAuth() {
+        document.getElementById("authForm").addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const status = document.getElementById("authStatus");
+          const passwordInput = document.getElementById("founderPassword");
+          const lockedUntil = Number(localStorage.getItem(AUTH_LOCK_KEY) || 0);
+          if (Date.now() < lockedUntil) {
+            status.textContent = `Too many attempts. Try again in ${Math.ceil((lockedUntil - Date.now()) / 1000)} seconds.`;
+            return;
+          }
+          status.textContent = "Checking password...";
+          let ok = false;
+          try {
+            ok = await verifyPassword(passwordInput.value);
+          } catch {
+            status.textContent = "Secure password check is unavailable in this browser context.";
+            passwordInput.value = "";
+            return;
+          }
+          passwordInput.value = "";
+          if (!ok) {
+            const attempts = Number(localStorage.getItem(AUTH_ATTEMPT_KEY) || 0) + 1;
+            localStorage.setItem(AUTH_ATTEMPT_KEY, String(attempts));
+            if (attempts >= 5) {
+              localStorage.setItem(AUTH_LOCK_KEY, String(Date.now() + AUTH_LOCK_MS));
+              localStorage.setItem(AUTH_ATTEMPT_KEY, "0");
+              status.textContent = "Locked for 5 minutes after too many failed attempts.";
+            } else {
+              status.textContent = `Wrong password. ${5 - attempts} attempts left before temporary lock.`;
+            }
+            return;
+          }
+          localStorage.setItem(AUTH_ATTEMPT_KEY, "0");
+          localStorage.removeItem(AUTH_LOCK_KEY);
+          sessionStorage.setItem(AUTH_SESSION_KEY, String(Date.now() + AUTH_SESSION_MS));
+          unlockApp(true);
+        });
+      }
+
+      async function verifyPassword(password) {
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits(
+          { name: "PBKDF2", salt: encoder.encode(PASSWORD_SALT), iterations: PASSWORD_ITERATIONS, hash: "SHA-256" },
+          key,
+          256
+        );
+        return timingSafeEqual(hex(new Uint8Array(bits)), PASSWORD_HASH_HEX);
+      }
+
+      function unlockApp(showToast) {
+        document.getElementById("authGate").classList.add("hidden");
+        document.getElementById("commandApp").classList.remove("locked");
+        document.getElementById("commandApp").setAttribute("aria-hidden", "false");
+        hydrateStatic();
+        if (!appBound) {
+          bindEvents();
+          appBound = true;
+        }
+        renderAll();
+        armIdleLock();
+        ["click", "keydown", "pointermove", "touchstart"].forEach((eventName) => window.addEventListener(eventName, armIdleLock, { passive: true }));
+        if (showToast) toast("Founder session unlocked");
+      }
+
+      function lockApp(reason = "Session locked") {
+        sessionStorage.removeItem(AUTH_SESSION_KEY);
+        document.getElementById("commandApp").classList.add("locked");
+        document.getElementById("commandApp").setAttribute("aria-hidden", "true");
+        document.getElementById("authGate").classList.remove("hidden");
+        document.getElementById("authStatus").textContent = reason;
+        document.getElementById("founderPassword").focus();
+      }
+
+      function armIdleLock() {
+        clearTimeout(idleTimer);
+        if (isUnlocked()) sessionStorage.setItem(AUTH_SESSION_KEY, String(Date.now() + AUTH_SESSION_MS));
+        idleTimer = setTimeout(() => lockApp("Locked after 15 minutes of inactivity."), AUTH_IDLE_MS);
+      }
+
+      function isUnlocked() {
+        return Number(sessionStorage.getItem(AUTH_SESSION_KEY) || 0) > Date.now();
+      }
+
+      function hex(bytes) {
+        return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+
+      function timingSafeEqual(a, b) {
+        if (a.length !== b.length) return false;
+        let mismatch = 0;
+        for (let index = 0; index < a.length; index += 1) mismatch |= a.charCodeAt(index) ^ b.charCodeAt(index);
+        return mismatch === 0;
+      }
+
+      function hydrateStatic() {
+        const today = new Date();
+        document.getElementById("todayPill").textContent = today.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+        document.getElementById("nav").innerHTML = navItems.map(([id, iconName, label]) => `<button class="nav-item ${id === activePage ? "active" : ""}" data-page="${id}" type="button">${icon(iconName)}<span>${label}</span></button>`).join("");
+        renderFounders();
+      }
+
+      function bindEvents() {
+        document.getElementById("nav").addEventListener("click", (event) => {
+          const button = event.target.closest("[data-page]");
+          if (button) showPage(button.dataset.page);
+        });
+        document.getElementById("founderStack").addEventListener("click", (event) => {
+          const button = event.target.closest("[data-founder]");
+          if (!button) return;
+          state.activeFounder = button.dataset.founder;
+          const founderFilter = document.getElementById("founderFilter");
+          if (founderFilter) founderFilter.value = state.activeFounder;
+          saveState();
+          toast(`Active founder: ${founderName(state.activeFounder)}`);
+          renderAll();
+        });
+        ["outreachSearch", "statusFilter", "founderFilter", "contactSearch", "contactFilter", "smsFilter"].forEach((id) => {
+          document.getElementById(id)?.addEventListener("input", renderAll);
+        });
+        document.getElementById("outreachRows").addEventListener("click", handleOutreachClick);
+        document.getElementById("outreachRows").addEventListener("change", handleAssignmentChange);
+        document.getElementById("priorityList").addEventListener("click", handlePriorityClick);
+        document.getElementById("callOutcome").addEventListener("change", () => {
+          document.getElementById("followUpField").classList.toggle("hidden", !document.getElementById("callOutcome").value.includes("follow up"));
+        });
+        document.getElementById("cancelCall").addEventListener("click", closeCallModal);
+        document.getElementById("callForm").addEventListener("submit", saveCallLog);
+        document.getElementById("contactsGrid").addEventListener("click", (event) => {
+          const card = event.target.closest("[data-contact]");
+          if (card) openContactPanel(card.dataset.contact);
+        });
+        document.getElementById("contactPanel").addEventListener("click", (event) => {
+          if (event.target.closest("[data-close-panel]")) document.getElementById("contactPanel").classList.remove("open");
+        });
+        document.getElementById("chatForm").addEventListener("submit", sendChatMessage);
+        document.getElementById("smsLog").addEventListener("click", (event) => {
+          const button = event.target.closest("[data-retry-sms]");
+          if (!button) return;
+          const item = state.smsLogs.find((sms) => sms.id === button.dataset.retrySms);
+          if (item) {
+            item.status = "SENT";
+            item.sentAt = new Date().toISOString();
+            saveState();
+            toast("SMS retry queued");
+            renderAll();
+          }
+        });
+        document.getElementById("profileForms").addEventListener("submit", saveFounderProfile);
+        document.getElementById("notificationToggles").addEventListener("click", toggleNotification);
+        document.getElementById("exportContacts").addEventListener("click", () => exportCsv("dnols-contacts.csv", contactRows()));
+        document.getElementById("exportDeals").addEventListener("click", () => exportCsv("dnols-deals.csv", state.deals));
+        document.getElementById("addCompanyBtn").addEventListener("click", () => toast("Add Company form can be connected when founders agree on required fields."));
+        document.getElementById("lockDashboardBtn").addEventListener("click", () => lockApp("Locked by founder."));
+      }
+
+      function renderAll() {
+        renderFounders();
+        renderOverview();
+        renderFilters();
+        renderOutreach();
+        renderDeals();
+        renderContacts();
+        renderMessages();
+        renderAnalytics();
+        renderSettings();
+      }
+
+      function showPage(page) {
+        activePage = page;
+        pages.forEach((id) => document.getElementById(`page-${id}`).classList.toggle("active", id === page));
+        document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.page === page));
+        if (page === "analytics") setTimeout(renderCharts, 80);
+      }
+
+      function renderFounders() {
+        document.getElementById("founderStack").innerHTML = state.founders.map((founder) => `<button class="avatar ${founder.id === state.activeFounder ? "active" : ""}" data-founder="${founder.id}" title="${founder.name}" type="button">${founder.initial}</button>`).join("");
+        document.getElementById("activeFounderLine").textContent = `Viewing ${founderName(state.activeFounder)} perspective`;
+      }
+
+      function renderOverview() {
+        const callsToday = state.companies.reduce((sum, company) => sum + company.callHistory.filter((call) => sameDay(call.at, new Date())).length, 0);
+        const activeDeals = state.deals.filter((deal) => !["Complete", "Disputed"].includes(deal.status)).length;
+        const fees = state.deals.reduce((sum, deal) => sum + (deal.feeCollected || 0), 0);
+        const metrics = [
+          ["Companies to Call", 40],
+          ["Calls Made Today", callsToday],
+          ["Active Deals", activeDeals],
+          ["Fees Collected", `$${money(fees)}`]
+        ];
+        document.getElementById("overviewMetrics").innerHTML = metrics.map(([label, value]) => `<div class="metric-card"><div class="metric-number">${value}</div><div class="metric-label">${label}</div></div>`).join("");
+        const priority = state.companies
+          .filter((c) => ["UNCALLED", "FOLLOW_UP", "INTERESTED"].includes(c.status))
+          .sort((a, b) => scorePriority(b) - scorePriority(a))
+          .slice(0, 5);
+        document.getElementById("priorityList").innerHTML = priority.map((company) => `
+          <div class="priority-row">
+            <div class="priority-main"><span class="company-name">${escapeHtml(company.name)}</span><span class="pill">${escapeHtml(company.industry)}</span></div>
+            <div class="card-row"><span class="muted">${escapeHtml(company.phone)}</span><span class="avatar tiny">${founderInitial(company.assignedTo)}</span><span class="badge ${badgeClass(company.status)}">${statusLabels[company.status]}</span><button class="btn secondary" data-log="${company.id}" type="button">Log Call</button></div>
+          </div>`).join("");
+        document.getElementById("dealFeed").innerHTML = state.dealEvents.map((event) => `<div class="feed-item"><div class="card-row"><strong>${event.ref}</strong><span class="dot ${event.urgency}"></span></div><div>${escapeHtml(event.text)}</div><span class="muted">${escapeHtml(event.timeAgo)}</span></div>`).join("");
+      }
+
+      function renderFilters() {
+        const statusFilter = document.getElementById("statusFilter");
+        const founderFilter = document.getElementById("founderFilter");
+        const previousStatus = statusFilter.value || "all";
+        const previousFounder = founderFilter.value || "all";
+        statusFilter.innerHTML = `<option value="all">All statuses</option>${Object.entries(statusLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}`;
+        founderFilter.innerHTML = `<option value="all">All founders</option><option value="unassigned">Unassigned</option>${state.founders.map((f) => `<option value="${f.id}">${f.name}</option>`).join("")}`;
+        statusFilter.value = previousStatus;
+        founderFilter.value = previousFounder;
+      }
+
+      function renderOutreach() {
+        const query = document.getElementById("outreachSearch").value.toLowerCase();
+        const status = document.getElementById("statusFilter").value;
+        const founder = document.getElementById("founderFilter").value;
+        const rows = state.companies.filter((company) => {
+          const haystack = `${company.name} ${company.industry} ${company.location} ${company.contact} ${company.phone}`.toLowerCase();
+          const founderOk = founder === "all" || (founder === "unassigned" ? !company.assignedTo : company.assignedTo === founder);
+          return haystack.includes(query) && (status === "all" || company.status === status) && founderOk;
+        });
+        document.getElementById("outreachRows").innerHTML = rows.map((company) => `
+          <tr class="company-row ${badgeClass(company.status)}" data-row="${company.id}">
+            <td><strong>${escapeHtml(company.name)}</strong></td>
+            <td>${escapeHtml(company.industry)}</td>
+            <td>${escapeHtml(company.location)}</td>
+            <td>${escapeHtml(company.contact)}</td>
+            <td class="nowrap">${escapeHtml(company.phone)}</td>
+            <td>${assignedCell(company)}</td>
+            <td>${company.lastCalled ? formatDateTime(company.lastCalled) : "Never"}</td>
+            <td><span class="badge ${badgeClass(company.status)}">${statusLabels[company.status]}</span></td>
+            <td><div class="notes-short" title="${escapeHtml(company.notes)}">${escapeHtml(company.notes || "No notes yet")}</div></td>
+            <td><button class="btn secondary" data-log="${company.id}" type="button">Log Call</button></td>
+          </tr>
+          <tr class="expand-row hidden" id="expand-${company.id}"><td colspan="10">${expandedCompany(company)}</td></tr>`).join("");
+      }
+
+      function assignedCell(company) {
+        const assigned = company.assignedTo ? `<span class="avatar tiny">${founderInitial(company.assignedTo)}</span> ${founderName(company.assignedTo)}` : "Unassigned";
+        const mine = company.assignedTo === state.activeFounder;
+        const disabled = company.assignedTo && !mine ? "disabled" : "";
+        const label = mine ? "Assigned to me" : "Assign to me";
+        const options = [`<option value="">Unassigned</option>`, ...state.founders.map((founder) => `<option value="${founder.id}" ${company.assignedTo === founder.id ? "selected" : ""}>${founder.name}</option>`)].join("");
+        return `<div class="card-row"><span>${assigned}</span><select data-assign-select="${company.id}" ${disabled} style="min-width: 120px;">${options}</select><button class="btn ghost" data-assign="${company.id}" ${disabled} type="button">${label}</button></div>`;
+      }
+
+      function expandedCompany(company) {
+        const history = company.callHistory.length
+          ? company.callHistory.map((call) => `<div class="history-item"><strong>${escapeHtml(call.outcome)}</strong> by ${founderName(call.founderId)} on ${formatDateTime(call.at)}<br>${escapeHtml(call.notes || "No notes")}</div>`).join("")
+          : `<div class="muted">No call history yet.</div>`;
+        return `<div class="history"><strong>Full notes</strong><div>${escapeHtml(company.notes || "No notes yet")}</div><strong>Call history</strong>${history}</div>`;
+      }
+
+      function handleOutreachClick(event) {
+        const assign = event.target.closest("[data-assign]");
+        const log = event.target.closest("[data-log]");
+        const row = event.target.closest("[data-row]");
+        if (assign) return assignCompany(assign.dataset.assign);
+        if (log) return openCallModal(log.dataset.log);
+        if (row) document.getElementById(`expand-${row.dataset.row}`)?.classList.toggle("hidden");
+      }
+
+      function handlePriorityClick(event) {
+        const log = event.target.closest("[data-log]");
+        if (log) openCallModal(log.dataset.log);
+      }
+
+      function assignCompany(id) {
+        const company = findCompany(id);
+        if (!company) return;
+        if (company.assignedTo && company.assignedTo !== state.activeFounder) {
+          toast(`${company.name} is already assigned to ${founderName(company.assignedTo)}`, true);
+          return;
+        }
+        company.assignedTo = state.activeFounder;
+        saveState();
+        toast(`${company.name} assigned to ${founderName(state.activeFounder)}`);
+        renderAll();
+      }
+
+      function handleAssignmentChange(event) {
+        const select = event.target.closest("[data-assign-select]");
+        if (!select) return;
+        const company = findCompany(select.dataset.assignSelect);
+        if (!company) return;
+        if (company.assignedTo && company.assignedTo !== state.activeFounder) {
+          toast(`${company.name} is already assigned to ${founderName(company.assignedTo)}`, true);
+          select.value = company.assignedTo;
+          return;
+        }
+        company.assignedTo = select.value;
+        saveState();
+        toast(company.assignedTo ? `${company.name} assigned to ${founderName(company.assignedTo)}` : `${company.name} unassigned`);
+        renderAll();
+      }
+
+      function openCallModal(id) {
+        const company = findCompany(id);
+        if (!company) return;
+        document.getElementById("callCompanyId").value = id;
+        document.getElementById("callCompanyName").value = company.name;
+        document.getElementById("callFounder").value = founderName(state.activeFounder);
+        document.getElementById("callDateTime").value = localDateTimeValue(new Date());
+        document.getElementById("callOutcome").value = "Interested - needs follow up";
+        document.getElementById("callNotes").value = "";
+        document.getElementById("followUpDate").value = "";
+        document.getElementById("followUpField").classList.remove("hidden");
+        document.getElementById("modalHost").classList.add("open");
+      }
+
+      function closeCallModal() {
+        document.getElementById("modalHost").classList.remove("open");
+      }
+
+      function saveCallLog(event) {
+        event.preventDefault();
+        const company = findCompany(document.getElementById("callCompanyId").value);
+        if (!company) return;
+        const outcome = document.getElementById("callOutcome").value;
+        const at = new Date(document.getElementById("callDateTime").value).toISOString();
+        const notes = document.getElementById("callNotes").value.trim();
+        company.assignedTo ||= state.activeFounder;
+        company.lastCalled = at;
+        company.status = statusFromOutcome(outcome);
+        company.notes = notes || company.notes || outcome;
+        company.followUpDate = outcome.includes("follow up") || outcome.includes("No answer") ? document.getElementById("followUpDate").value : "";
+        company.callHistory.push({ founderId: state.activeFounder, at, outcome, notes, followUpDate: company.followUpDate });
+        saveState();
+        closeCallModal();
+        toast(`Call logged for ${company.name}`);
+        renderAll();
+      }
+
+      function renderDeals() {
+        const counts = { All: state.deals.length, Pending: 0, "In Progress": 0, Complete: 0, Disputed: 0 };
+        state.deals.forEach((deal) => { counts[deal.status] = (counts[deal.status] || 0) + 1; });
+        document.getElementById("dealFilters").innerHTML = Object.entries(counts).map(([label, count]) => `<span class="pill">${label} ${count}</span>`).join("");
+        document.getElementById("dealList").innerHTML = state.deals.map((deal) => `
+          <article class="deal-card">
+            <div class="deal-top"><h2>${deal.id}</h2><span class="badge ${dealBadge(deal.status)}">${deal.status}</span></div>
+            <div class="deal-meta"><span>Buyer: ${escapeHtml(deal.buyer)}</span><span>Seller: ${escapeHtml(deal.seller)}</span></div>
+            <div class="muted">Service: ${escapeHtml(deal.service)}</div>
+            <div class="deal-meta"><span>Value: $${money(deal.value)}</span><span>Fee due: $${money(deal.feeDue)}</span><span>Last activity: ${escapeHtml(deal.lastActivity)}</span></div>
+            <div class="timeline">${["Initiated","Negotiating","Approved","Payment","Complete"].map((stage, index) => `<span class="stage ${index <= deal.stage ? "filled" : ""}" title="${stage}"></span>`).join("")}</div>
+            <div class="card-row">${deal.stalled ? `<span class="badge danger">STALLED</span><button class="btn danger" type="button" onclick="toast('Call ${escapeHtml(deal.callPhone)}')">Call Now</button>` : ""}${deal.feeUnpaid ? `<span class="badge warning">UNPAID</span><button class="btn secondary" type="button" onclick="toast('Chase payment: ${escapeHtml(deal.buyer)}')">Chase Payment</button>` : ""}</div>
+          </article>`).join("");
+      }
+
+      function renderContacts() {
+        const query = document.getElementById("contactSearch").value.toLowerCase();
+        const filter = document.getElementById("contactFilter").value;
+        const contacts = contactRows().filter((contact) => {
+          const type = contact.status === "ONBOARDED" ? "Onboarded" : contact.status === "INTERESTED" ? "Interested" : contact.status === "NOT_INTERESTED" ? "Inactive" : "Leads";
+          return `${contact.name} ${contact.contact} ${contact.phone}`.toLowerCase().includes(query) && (filter === "all" || type.toUpperCase() === filter);
+        });
+        document.getElementById("contactsGrid").innerHTML = contacts.map((contact) => `
+          <article class="contact-card" data-contact="${contact.id}">
+            <div class="contact-title"><span class="avatar">${initials(contact.name)}</span><div><h3>${escapeHtml(contact.name)}</h3><div class="muted">${escapeHtml(contact.contact)}</div></div></div>
+            <div class="icon-line">${icon("ti-phone-call")} ${escapeHtml(contact.phone)}</div>
+            <div class="icon-line">${icon("ti-brand-whatsapp")} ${escapeHtml(contact.phone)}</div>
+            <div class="icon-line">${icon("ti-mail")} ${escapeHtml(contact.email)}</div>
+            ${contact.status === "ONBOARDED" ? `<span class="pill">Trust score ${contact.trustScore}</span>` : ""}
+            <div class="card-row"><span class="badge ${badgeClass(contact.status)}">${statusLabels[contact.status] || contact.status}</span><span class="muted">${formatDate(contact.lastInteraction)}</span></div>
+            <button class="btn ghost" type="button">${icon("ti-file-text")} View notes</button>
+          </article>`).join("");
+      }
+
+      function openContactPanel(id) {
+        const contact = contactRows().find((item) => item.id === id);
+        if (!contact) return;
+        const deals = state.deals.filter((deal) => deal.buyer === contact.name || deal.seller === contact.name);
+        const calls = contact.callHistory.length ? contact.callHistory.map((call) => `<div class="history-item">${formatDateTime(call.at)} - ${escapeHtml(call.outcome)}<br>${escapeHtml(call.notes || "No notes")}</div>`).join("") : `<p class="muted">No calls logged yet.</p>`;
+        document.getElementById("contactPanel").innerHTML = `<button class="btn secondary" data-close-panel type="button">Close</button><h2>${escapeHtml(contact.name)}</h2><p class="muted">${escapeHtml(contact.industry)} - ${escapeHtml(contact.location)}</p><div class="history"><strong>Contact info</strong><div>${escapeHtml(contact.contact)}<br>${escapeHtml(contact.phone)}<br>${escapeHtml(contact.email)}</div><strong>Call logs</strong>${calls}<strong>Deal history</strong>${deals.length ? deals.map((deal) => `<div>${deal.id} - ${deal.status} - $${money(deal.value)}</div>`).join("") : `<div class="muted">No deals yet.</div>`}<strong>Notes timeline</strong><div>${escapeHtml(contact.notes || "No notes")}</div></div>`;
+        document.getElementById("contactPanel").classList.add("open");
+      }
+
+      function renderMessages() {
+        document.getElementById("chatList").innerHTML = state.chatMessages.map((message) => `<div class="chat-message"><span class="avatar small">${founderInitial(message.founderId)}</span><div class="bubble"><strong>${founderName(message.founderId)}</strong><p>${escapeHtml(message.text)}</p><small>${formatDateTime(message.at)}</small></div></div>`).join("");
+        const filter = document.getElementById("smsFilter").value;
+        const sms = state.smsLogs.filter((item) => filterSms(item, filter));
+        document.getElementById("smsLog").innerHTML = sms.map((item) => `<div class="sms-row ${item.status === "FAILED" ? "failed" : ""}"><div class="card-row"><strong>${escapeHtml(item.company)}</strong><span class="badge ${item.status === "FAILED" ? "danger" : "success"}">${item.status}</span></div><div class="muted">${escapeHtml(item.phone)} - ${escapeHtml(item.dealId)}</div><div>${escapeHtml(item.message.slice(0, 96))}${item.message.length > 96 ? "..." : ""}</div><div class="card-row"><span class="muted">${formatDateTime(item.sentAt)}</span>${item.status === "FAILED" ? `<button class="btn danger" data-retry-sms="${item.id}" type="button">Retry</button>` : ""}</div></div>`).join("");
+      }
+
+      function sendChatMessage(event) {
+        event.preventDefault();
+        const input = document.getElementById("chatInput");
+        state.chatMessages.push({ id: cryptoId("msg"), founderId: state.activeFounder, text: input.value.trim(), at: new Date().toISOString() });
+        input.value = "";
+        saveState();
+        toast("Message sent");
+        renderMessages();
+      }
+
+      function renderAnalytics() {
+        const contacted = state.companies.filter((company) => company.callHistory.length || company.status !== "UNCALLED").length;
+        const onboarded = state.companies.filter((company) => company.status === "ONBOARDED").length;
+        const totalValue = state.deals.reduce((sum, deal) => sum + deal.value, 0);
+        const fees = state.deals.reduce((sum, deal) => sum + (deal.feeCollected || 0), 0);
+        const metrics = [
+          ["Total Companies Contacted", contacted],
+          ["Conversion Rate", `${contacted ? Math.round((onboarded / contacted) * 100) : 0}%`],
+          ["Total Deals Created", state.deals.length],
+          ["Total Deal Value", `$${money(totalValue)}`],
+          ["Total Fees Collected", `$${money(fees)}`],
+          ["Average Deal Size", `$${money(totalValue / Math.max(state.deals.length, 1))}`]
+        ];
+        document.getElementById("analyticsMetrics").innerHTML = metrics.map(([label, value]) => `<div class="metric-card"><div class="metric-number">${value}</div><div class="metric-label">${label}</div></div>`).join("");
+        document.getElementById("leaderboardRows").innerHTML = state.founders.map((founder) => {
+          const calls = state.companies.flatMap((company) => company.callHistory).filter((call) => call.founderId === founder.id).length;
+          const onboardedByFounder = state.companies.filter((company) => company.assignedTo === founder.id && company.status === "ONBOARDED").length;
+          const dealsTriggered = state.deals.filter((deal) => deal.founderId === founder.id).length;
+          const founderFees = state.deals.filter((deal) => deal.founderId === founder.id).reduce((sum, deal) => sum + (deal.feeCollected || 0), 0);
+          return `<tr><td>${founder.name}</td><td>${calls}</td><td>${onboardedByFounder}</td><td>${dealsTriggered}</td><td>$${money(founderFees)}</td></tr>`;
+        }).join("");
+        if (activePage === "analytics") renderCharts();
+      }
+
+      function renderCharts() {
+        if (!window.Chart) return;
+        const css = getComputedStyle(document.documentElement);
+        const days = last14Days();
+        const calls = days.map((day) => state.companies.flatMap((c) => c.callHistory).filter((call) => call.at.slice(0, 10) === day.key).length);
+        const dealCounts = ["Pending", "In Progress", "Complete", "Disputed"].map((status) => state.deals.filter((deal) => deal.status === status).length);
+        callsChart?.destroy();
+        dealsChart?.destroy();
+        callsChart = new Chart(document.getElementById("callsChart"), {
+          type: "bar",
+          data: { labels: days.map((d) => d.label), datasets: [{ data: calls, backgroundColor: css.getPropertyValue("--brand").trim(), borderRadius: 8 }] },
+          options: chartOptions()
+        });
+        dealsChart = new Chart(document.getElementById("dealsChart"), {
+          type: "doughnut",
+          data: { labels: ["Pending", "In Progress", "Complete", "Disputed"], datasets: [{ data: dealCounts, backgroundColor: [css.getPropertyValue("--text-3").trim(), css.getPropertyValue("--brand").trim(), css.getPropertyValue("--success").trim(), css.getPropertyValue("--danger").trim()] }] },
+          options: chartOptions()
+        });
+      }
+
+      function renderSettings() {
+        document.getElementById("profileForms").innerHTML = state.founders.map((founder) => `<form class="founder-form" data-profile="${founder.id}"><span class="avatar">${founder.initial}</span><div><label>Name</label><input name="name" value="${escapeHtml(founder.name)}" /></div><div><label>Phone</label><input name="phone" value="${escapeHtml(founder.phone)}" /></div><button class="btn secondary" type="submit">Save</button></form>`).join("");
+        document.getElementById("notificationToggles").innerHTML = Object.entries(state.notifications).map(([key, value]) => `<div class="switch-row"><span>${notificationLabel(key)}</span><button class="switch ${value ? "on" : ""}" data-toggle="${key}" type="button" aria-label="${notificationLabel(key)}"></button></div>`).join("");
+      }
+
+      function saveFounderProfile(event) {
+        event.preventDefault();
+        const form = event.target.closest("[data-profile]");
+        if (!form) return;
+        const founder = state.founders.find((item) => item.id === form.dataset.profile);
+        const data = new FormData(form);
+        founder.name = data.get("name").trim();
+        founder.phone = data.get("phone").trim();
+        saveState();
+        toast("Founder profile saved");
+        renderAll();
+      }
+
+      function toggleNotification(event) {
+        const button = event.target.closest("[data-toggle]");
+        if (!button) return;
+        state.notifications[button.dataset.toggle] = !state.notifications[button.dataset.toggle];
+        saveState();
+        toast("Notification setting updated");
+        renderSettings();
+      }
+
+      function loadState() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (saved?.version === 1 && saved?.companies?.length === 40) return saved;
+        } catch {}
+        const seeded = seedState();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+        return seeded;
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function seedState() {
+        const founders = [
+          { id: "h", initial: "H", name: "Hassan", phone: "+255712111111" },
+          { id: "f", initial: "F", name: "Founder 2", phone: "+255713222222" },
+          { id: "a", initial: "A", name: "Founder 3", phone: "+255714333333" }
+        ];
+        const statuses = [...Array(25).fill("UNCALLED"), ...Array(7).fill("CALLED"), ...Array(4).fill("FOLLOW_UP"), ...Array(2).fill("INTERESTED"), "ONBOARDED", "NOT_INTERESTED"];
+        const assignments = ["h","h","h","h","h","f","f","f","f","a","a","a"];
+        const companies = logisticsCompanies().map((item, index) => {
+          const status = statuses[index];
+          const assignedTo = assignments[index] || "";
+          const lastCalled = status === "UNCALLED" ? "" : daysAgo((index % 8) + 1);
+          const callHistory = lastCalled ? [{ founderId: assignedTo || "h", at: lastCalled, outcome: callOutcomeForStatus(status), notes: item.notes }] : [];
+          return { ...item, id: `co-${String(index + 1).padStart(2, "0")}`, status, assignedTo, lastCalled, callHistory, followUpDate: status === "FOLLOW_UP" ? daysAhead(2 + (index % 4)).slice(0, 10) : "" };
+        });
+        return {
+          version: 1,
+          activeFounder: "h",
+          founders,
+          companies,
+          deals: seedDeals(),
+          dealEvents: [
+            { ref: "DNL-2024-0047", text: "Seller approved freight request", timeAgo: "2 min ago", urgency: "success" },
+            { ref: "DNL-2024-0046", text: "Payment confirmed by buyer", timeAgo: "18 min ago", urgency: "brand" },
+            { ref: "DNL-2024-0045", text: "Fee unpaid 24hrs", timeAgo: "1 hr ago", urgency: "warning" },
+            { ref: "DNL-2024-0044", text: "No seller response after 2hrs", timeAgo: "2 hrs ago", urgency: "danger" }
+          ],
+          chatMessages: [
+            { id: "msg-1", founderId: "h", text: "Focus Dar port clearing agents first. They feel the pain fastest.", at: daysAgo(1) },
+            { id: "msg-2", founderId: "f", text: "I will take the cold chain list after lunch.", at: daysAgo(0.2) }
+          ],
+          smsLogs: seedSmsLogs(),
+          notifications: { newDeal: true, stalled: true, feeUnpaid: true, onboarded: true, smsFailure: true }
+        };
+      }
+
+      function logisticsCompanies() {
+        return [
+          ["Azania Freight Link", "Freight forwarding", "Dar es Salaam", "Asha Msuya", "+255712304101", "asha@azaniafreight.co.tz", "Handles port to Nairobi freight. Ask about cross-border quoting delays."],
+          ["Kariakoo Cargo Movers", "Last-mile delivery", "Dar es Salaam", "Hassan Mzee", "+255713804102", "hassan@kariakoocargo.co.tz", "Busy SME courier network around Kariakoo and Ilala."],
+          ["Bahari Clearing Partners", "Clearing and forwarding", "Dar es Salaam", "Fatma Ally", "+255714904103", "fatma@bahariclearing.co.tz", "Dar port clearing agent. Likely needs faster buyer qualification."],
+          ["Mlimani Express Logistics", "Courier", "Dar es Salaam", "Daniel Komba", "+255715204104", "daniel@mlimaniexpress.co.tz", "Courier team serving offices and ecommerce sellers."],
+          ["Serengeti Cold Chain", "Cold chain", "Arusha", "Neema Laizer", "+255716304105", "neema@serengeticold.co.tz", "Food and pharma cold-chain operator. Demo around temperature-sensitive orders."],
+          ["Nyota Transit Tanzania", "Freight forwarding", "Dar es Salaam", "Mohamed Said", "+255717404106", "mohamed@nyotatransit.co.tz", "Regional freight broker with repeat quote requests."],
+          ["Dodoma Haulage Works", "Upcountry transport", "Dodoma", "Grace Mfinanga", "+255718504107", "grace@dodumahaulage.co.tz", "Truck owner network moving government and retail cargo."],
+          ["Lake Zone Cargo", "Upcountry transport", "Mwanza", "Peter Masanja", "+255719604108", "peter@lakezonecargo.co.tz", "Mwanza operator for lake zone deliveries and spare parts."],
+          ["Kilimanjaro Courier Hub", "Courier", "Moshi", "Rehema Mushi", "+255752704109", "rehema@kilicourier.co.tz", "Courier hub around Moshi and Arusha with WhatsApp-heavy workflow."],
+          ["Uhuru Port Clearers", "Clearing and forwarding", "Dar es Salaam", "Salim Hamisi", "+255753804110", "salim@uhuruport.co.tz", "Port clearing team. Ask about missed documents and approvals."],
+          ["Pwani Delivery Network", "Last-mile delivery", "Bagamoyo", "Zainab Rashid", "+255754904111", "zainab@pwanidelivery.co.tz", "Coastal last-mile operator for retailers and small hotels."],
+          ["Tanga Freight House", "Freight forwarding", "Tanga", "Yusuf Abdallah", "+255755204112", "yusuf@tangafreight.co.tz", "Northern port freight and warehouse coordination."],
+          ["Raha Cold Logistics", "Cold chain", "Dar es Salaam", "Mariam Juma", "+255756304113", "mariam@rahacold.co.tz", "Pharma and fresh produce cold vans. Pitch trusted deal tracking."],
+          ["Simba Parcel Services", "Courier", "Dar es Salaam", "Emmanuel Sanga", "+255757404114", "emmanuel@simbaparcel.co.tz", "Parcel service with daily phone orders from SMEs."],
+          ["Mwanza Transit Co", "Upcountry transport", "Mwanza", "Halima Nyangasa", "+255758504115", "halima@mwanzatransit.co.tz", "Long-distance cargo between Mwanza, Shinyanga and Dar."],
+          ["Twiga Freight Brokers", "Freight forwarding", "Arusha", "Abdul Karim", "+255759604116", "abdul@twigafreight.co.tz", "Brokerage for tourism suppliers and cross-border shipments."],
+          ["Dar Port Link Agency", "Clearing and forwarding", "Dar es Salaam", "Sophia Mwakasala", "+255762704117", "sophia@darportlink.co.tz", "Port agency. Needs better evidence trail for clients."],
+          ["Mbeya Road Cargo", "Upcountry transport", "Mbeya", "Joseph Mwakalinga", "+255763804118", "joseph@mbeyaroadcargo.co.tz", "Southwest corridor transporter, mostly phone-based bookings."],
+          ["Coastline Courier TZ", "Courier", "Dar es Salaam", "Amina Bakari", "+255764904119", "amina@coastlinecourier.co.tz", "Courier for pharmacies and shops along the coast."],
+          ["Zanzibar Mainland Freight", "Freight forwarding", "Zanzibar", "Omar Suleiman", "+255765204120", "omar@zmfreight.co.tz", "Island-mainland freight handoffs and ferry coordination."],
+          ["Jangwani Distribution", "Last-mile delivery", "Dar es Salaam", "Upendo Lema", "+255766304121", "upendo@jangwanidistribution.co.tz", "Retail distribution around Dar and Kibaha."],
+          ["Mbezi Logistics Yard", "Freight forwarding", "Dar es Salaam", "Rashid Mwinyi", "+255767404122", "rashid@mbezilogistics.co.tz", "Yard and truck scheduling, good fit for deal rooms."],
+          ["Arusha Cargo Link", "Upcountry transport", "Arusha", "Elias Kimaro", "+255768504123", "elias@arushacargolink.co.tz", "Arusha route operator. Ask about quote follow-ups."],
+          ["Nyerere Road Couriers", "Courier", "Dar es Salaam", "Saida Omar", "+255769604124", "saida@nyererecouriers.co.tz", "Urban courier fleet with repeat WhatsApp orders."],
+          ["Mikumi Freight Services", "Freight forwarding", "Morogoro", "Jonas Mligo", "+255742704125", "jonas@mikumifreight.co.tz", "Morogoro freight and warehouse service."],
+          ["Soko Fresh Cold Chain", "Cold chain", "Dar es Salaam", "Lilian Pius", "+255743804126", "lilian@sokofresh.co.tz", "Fresh produce cold-chain deliveries to hotels and supermarkets."],
+          ["Kijichi Cargo Solutions", "Clearing and forwarding", "Dar es Salaam", "Ibrahim Khamis", "+255744904127", "ibrahim@kijichicargo.co.tz", "Clearing agent near port clients. Follow up on demo interest."],
+          ["Dodoma Parcel Line", "Courier", "Dodoma", "Zuhura Selemani", "+255745204128", "zuhura@dodmaparcel.co.tz", "Parcel and document delivery in central Tanzania."],
+          ["Tabora Trucking Group", "Upcountry transport", "Tabora", "Michael Shija", "+255746304129", "michael@taboratrucking.co.tz", "Upcountry truck network for agricultural cargo."],
+          ["Ilala Dispatch Co", "Last-mile delivery", "Dar es Salaam", "Nuru Mohamed", "+255747404130", "nuru@ilaladispatch.co.tz", "Dispatch for restaurants and small merchants."],
+          ["Rukwa Cargo Carriers", "Upcountry transport", "Sumbawanga", "Pascal Mwenda", "+255748504131", "pascal@rukwacargo.co.tz", "Long-haul cargo to western regions."],
+          ["Mwenge Express Freight", "Freight forwarding", "Dar es Salaam", "Farida Salum", "+255749604132", "farida@mwengeexpress.co.tz", "SME freight operator, asked for follow-up next week."],
+          ["Kurasini Port Handlers", "Clearing and forwarding", "Dar es Salaam", "Juma Rajabu", "+255711704133", "juma@kurasiniport.co.tz", "Port handlers around Kurasini. Interested in approval flows."],
+          ["Mwananchi Courier Fleet", "Courier", "Dar es Salaam", "Agnes Charles", "+255710804134", "agnes@mwananchicourier.co.tz", "Courier fleet with many missed calls during peak hours."],
+          ["Northern Route Logistics", "Upcountry transport", "Arusha", "Issa Mrema", "+255789904135", "issa@northernroute.co.tz", "Arusha to Nairobi corridor, good cross-border prospect."],
+          ["Kibaha Warehouse Movers", "Last-mile delivery", "Kibaha", "Beatrice Kessy", "+255788204136", "beatrice@kibahamovers.co.tz", "Warehouse delivery operation outside Dar."],
+          ["Ocean Gate Clearers", "Clearing and forwarding", "Dar es Salaam", "Mahmoud Nassor", "+255787304137", "mahmoud@oceangate.co.tz", "Clearing business close to onboarding."],
+          ["Green Basket Cold Logistics", "Cold chain", "Mwanza", "Flora Maganga", "+255786404138", "flora@greenbasketcold.co.tz", "Cold transport for fish and produce in lake zone."],
+          ["Temeke Parcel Express", "Courier", "Dar es Salaam", "Bakari Shomari", "+255785504139", "bakari@temekeparcel.co.tz", "Already using a competitor but open later."],
+          ["Shinyanga Bulk Transport", "Upcountry transport", "Shinyanga", "Rose Magesa", "+255784604140", "rose@shinyangabulk.co.tz", "Bulk transport for mining and agricultural cargo."]
+        ].map(([name, industry, location, contact, phone, email, notes]) => ({ name, industry, location, contact, phone, email, notes, trustScore: 82 }));
+      }
+
+      function seedDeals() {
+        return [
+          { id: "DNL-2024-0047", status: "Pending", buyer: "ProTender", seller: "Orbit Logistics", service: "Freight Dar to Nairobi", value: 880, feeDue: 17.6, feeCollected: 0, lastActivity: "12 min ago", stage: 0, stalled: false, feeUnpaid: false, founderId: "h", callPhone: "+255712000000" },
+          { id: "DNL-2024-0046", status: "In Progress", buyer: "Azania Freight Link", seller: "Bahari Clearing Partners", service: "Port clearing and inland transfer", value: 2200, feeDue: 44, feeCollected: 0, lastActivity: "38 min ago", stage: 3, stalled: false, feeUnpaid: false, founderId: "f", callPhone: "+255714904103" },
+          { id: "DNL-2024-0045", status: "Complete", buyer: "Serengeti Cold Chain", seller: "Soko Fresh Cold Chain", service: "Cold van delivery", value: 1460, feeDue: 29.2, feeCollected: 0, lastActivity: "1 day ago", stage: 4, stalled: false, feeUnpaid: true, founderId: "a", callPhone: "+255716304105" },
+          { id: "DNL-2024-0044", status: "In Progress", buyer: "Dar Port Link Agency", seller: "Mlimani Express Logistics", service: "Document courier and customs file run", value: 310, feeDue: 6.2, feeCollected: 0, lastActivity: "2 hrs ago", stage: 1, stalled: true, feeUnpaid: false, founderId: "h", callPhone: "+255715204104" },
+          { id: "DNL-2024-0043", status: "Disputed", buyer: "Lake Zone Cargo", seller: "Mwanza Transit Co", service: "Spare parts haulage", value: 1120, feeDue: 22.4, feeCollected: 0, lastActivity: "3 hrs ago", stage: 3, stalled: false, feeUnpaid: false, founderId: "f", callPhone: "+255758504115" }
+        ];
+      }
+
+      function seedSmsLogs() {
+        return [
+          { id: "sms-1", company: "Orbit Logistics", phone: "+255712000000", message: "DNOLS: New deal request from ProTender. Reply YES, NO or COUNTER. Ref DNL-2024-0047", sentAt: daysAgo(0.1), status: "DELIVERED", dealId: "DNL-2024-0047" },
+          { id: "sms-2", company: "Bahari Clearing Partners", phone: "+255714904103", message: "DNOLS: Payment incoming. Buyer confirmed payment sent.", sentAt: daysAgo(0.4), status: "SENT", dealId: "DNL-2024-0046" },
+          { id: "sms-3", company: "Mlimani Express Logistics", phone: "+255715204104", message: "DNOLS: Awaiting your response. Deal DNL-2024-0044 is waiting.", sentAt: daysAgo(0.2), status: "FAILED", dealId: "DNL-2024-0044" }
+        ];
+      }
+
+      function contactRows() {
+        return state.companies.map((company) => ({
+          id: company.id,
+          name: company.name,
+          contact: company.contact,
+          phone: company.phone,
+          email: company.email,
+          status: company.status,
+          industry: company.industry,
+          location: company.location,
+          lastInteraction: company.lastCalled || company.callHistory.at(-1)?.at || daysAgo(5),
+          notes: company.notes,
+          trustScore: company.trustScore,
+          callHistory: company.callHistory
+        }));
+      }
+
+      function statusFromOutcome(outcome) {
+        if (outcome.includes("wants demo")) return "INTERESTED";
+        if (outcome.includes("follow up") || outcome.includes("No answer")) return "FOLLOW_UP";
+        if (outcome.includes("Not interested") || outcome.includes("Wrong number") || outcome.includes("competitor")) return "NOT_INTERESTED";
+        return "CALLED";
+      }
+
+      function scorePriority(company) {
+        let score = 0;
+        if (company.assignedTo === state.activeFounder) score += 4;
+        if (!company.assignedTo) score += 2;
+        if (company.status === "FOLLOW_UP") score += 3;
+        if (company.status === "INTERESTED") score += 2;
+        return score;
+      }
+
+      function callOutcomeForStatus(status) {
+        return status === "INTERESTED" ? "Interested - wants demo" : status === "FOLLOW_UP" ? "Interested - needs follow up" : status === "NOT_INTERESTED" ? "Not interested" : "No answer - try again";
+      }
+
+      function filterSms(item, filter) {
+        if (filter === "All") return true;
+        if (filter === "Delivered") return item.status === "DELIVERED";
+        if (filter === "Failed") return item.status === "FAILED";
+        if (filter === "Today") return sameDay(item.sentAt, new Date());
+        if (filter === "This Week") return Date.now() - new Date(item.sentAt).getTime() <= 7 * 24 * 60 * 60 * 1000;
+        return true;
+      }
+
+      function badgeClass(status) { return String(status || "").toLowerCase(); }
+      function dealBadge(status) { return status === "Complete" ? "success" : status === "Disputed" ? "danger" : status === "In Progress" ? "blue" : "uncalled"; }
+      function founderName(id) { return state.founders.find((founder) => founder.id === id)?.name || "Unassigned"; }
+      function founderInitial(id) { return state.founders.find((founder) => founder.id === id)?.initial || "-"; }
+      function findCompany(id) { return state.companies.find((company) => company.id === id); }
+      function initials(name) { return String(name).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
+      function money(value) { const number = Number(value); return Number.isFinite(number) ? number.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0"; }
+      function formatDate(value) { return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }); }
+      function formatDateTime(value) { return value ? new Date(value).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Never"; }
+      function localDateTimeValue(date) { return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+      function sameDay(value, date) { return value && new Date(value).toISOString().slice(0, 10) === date.toISOString().slice(0, 10); }
+      function daysAgo(days) { return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(); }
+      function daysAhead(days) { return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(); }
+      function cryptoId(prefix) { return `${prefix}-${Math.random().toString(36).slice(2, 10)}`; }
+      function notificationLabel(key) {
+        return { newDeal: "New deal created", stalled: "Deal stalled 2hrs", feeUnpaid: "Fee unpaid 24hrs", onboarded: "New company onboarded", smsFailure: "SMS delivery failure" }[key] || key;
+      }
+      function last14Days() {
+        return Array.from({ length: 14 }, (_, index) => {
+          const date = new Date(Date.now() - (13 - index) * 24 * 60 * 60 * 1000);
+          return { key: date.toISOString().slice(0, 10), label: date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) };
+        });
+      }
+      function chartOptions() {
+        return { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: "#8A8FA8" } } }, scales: { x: { ticks: { color: "#8A8FA8" }, grid: { color: "rgba(255,255,255,0.04)" } }, y: { ticks: { color: "#8A8FA8", precision: 0 }, grid: { color: "rgba(255,255,255,0.04)" } } } };
+      }
+      function exportCsv(filename, rows) {
+        if (!rows.length) return toast("Nothing to export", true);
+        const keys = Object.keys(rows[0]).filter((key) => typeof rows[0][key] !== "object");
+        const csv = [keys.join(","), ...rows.map((row) => keys.map((key) => `"${String(row[key] ?? "").replaceAll('"', '""')}"`).join(","))].join("\n");
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast(`Exported ${filename}`);
+      }
+      function toast(message, error = false) {
+        const node = document.createElement("div");
+        node.className = `toast ${error ? "error" : "success"}`;
+        node.textContent = message;
+        document.getElementById("toastStack").append(node);
+        setTimeout(() => node.remove(), 3000);
+      }
+      function escapeHtml(value) {
+        return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+      }
+      function icon(name) {
+        const paths = {
+          "ti-layout-dashboard": '<rect x="4" y="4" width="6" height="8" rx="1"></rect><rect x="14" y="4" width="6" height="5" rx="1"></rect><rect x="14" y="13" width="6" height="7" rx="1"></rect><rect x="4" y="16" width="6" height="4" rx="1"></rect>',
+          "ti-phone-call": '<path d="M5 4h4l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2"></path>',
+          "ti-file-text": '<path d="M14 3v5h5"></path><path d="M5 3h9l5 5v13H5z"></path><path d="M9 13h6"></path><path d="M9 17h6"></path>',
+          "ti-users": '<path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path><path d="M16 4a4 4 0 0 1 0 7"></path><path d="M21 21v-2a4 4 0 0 0-3-3.85"></path>',
+          "ti-message-circle": '<path d="M12 20a8 8 0 1 0-7-4l-1 5 5-1a8 8 0 0 0 3 0"></path>',
+          "ti-chart-bar": '<path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-6"></path>',
+          "ti-settings": '<path d="M10.3 4.3 11 2h2l.7 2.3 2 .8 2.1-1 1.4 1.4-1 2.1.8 2 2.3.7v2l-2.3.7-.8 2 1 2.1-1.4 1.4-2.1-1-2 .8L13 22h-2l-.7-2.3-2-.8-2.1 1-1.4-1.4 1-2.1-.8-2L2.7 13v-2l2.3-.7.8-2-1-2.1 1.4-1.4 2.1 1z"></path><circle cx="12" cy="12" r="3"></circle>',
+          "ti-brand-whatsapp": '<path d="M3 21l1.6-4.8A8 8 0 1 1 8 19.4z"></path><path d="M9 9c.2 3 2.8 5 6 6l1-1.5"></path>',
+          "ti-mail": '<rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path>'
+        };
+        return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths["ti-file-text"]}</svg>`;
+      }
+    </script>
+  </body>
+</html>

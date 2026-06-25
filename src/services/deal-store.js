@@ -31,6 +31,14 @@ export function createDealStore({ env = process.env, now = () => new Date() } = 
       firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
       return firestoreStore.listActiveDeals();
     },
+    async listDealsByStatus(statuses = []) {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return firestoreStore.listDealsByStatus(statuses);
+    },
+    async findActiveDealsByPhone(phone) {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return firestoreStore.findActiveDealsByPhone(phone);
+    },
     async updateDeal(dealId, patch = {}) {
       firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
       return firestoreStore.updateDeal(dealId, patch);
@@ -56,6 +64,18 @@ export function createMemoryDealStore({ state = { deals: new Map(), phoneIndex: 
     },
     async listActiveDeals() {
       return [...state.deals.values()].filter(isActiveDeal).map(clone);
+    },
+    async listDealsByStatus(statuses = []) {
+      const allowed = new Set(statuses.map(clean).filter(Boolean));
+      return [...state.deals.values()]
+        .filter((deal) => allowed.has(clean(deal.status)))
+        .map(clone);
+    },
+    async findActiveDealsByPhone(phone) {
+      const normalizedPhone = normalizePhone(phone);
+      return [...state.deals.values()]
+        .filter((deal) => isActiveDeal(deal) && dealHasPhone(deal, normalizedPhone))
+        .map(clone);
     },
     async updateDeal(dealId, patch = {}) {
       const id = clean(dealId);
@@ -154,6 +174,17 @@ async function createFirestoreDealStore(config, fallback, now) {
       const snapshot = await deals.where("status", "in", ["initiated", "approved", "negotiating", "agreed", "payment_sent"]).get();
       return snapshot.docs.map((doc) => doc.data()).filter(isActiveDeal);
     },
+    async listDealsByStatus(statuses = []) {
+      const allowed = statuses.map(clean).filter(Boolean).slice(0, 10);
+      if (!allowed.length) return [];
+      const snapshot = await deals.where("status", "in", allowed).get();
+      return snapshot.docs.map((doc) => doc.data());
+    },
+    async findActiveDealsByPhone(phone) {
+      const normalizedPhone = normalizePhone(phone);
+      const activeDeals = await this.listActiveDeals();
+      return activeDeals.filter((deal) => dealHasPhone(deal, normalizedPhone));
+    },
     async updateDeal(dealId, patch = {}) {
       const existing = (await this.getDeal(dealId)) || {};
       if (!existing.dealId && !existing.id) return null;
@@ -184,6 +215,11 @@ function phoneIndexEntries(deal = {}) {
     [normalizePhone(deal.seller?.phone || deal.sellerPhone), "seller"],
     [normalizePhone(deal.owner?.phone || deal.ownerPhone), "owner"]
   ].filter(([phone]) => phone);
+}
+
+function dealHasPhone(deal = {}, phone) {
+  if (!phone) return false;
+  return phoneIndexEntries(deal).some(([entryPhone]) => entryPhone === phone);
 }
 
 function normalizeContact(contact = {}) {

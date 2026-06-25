@@ -190,6 +190,8 @@ AT_API_KEY=...
 AT_USERNAME=sandbox
 AT_SENDER_ID=DNOLS
 AT_ENV=sandbox
+# Founder/admin personal phone for management SMS summaries.
+FOUNDER_PHONE=+255712000000
 # Optional Firestore-backed SMS deal state for the Render service.
 DEAL_STORE_BACKEND=firestore
 # Prefer Render Cron for production reminder runs.
@@ -207,7 +209,7 @@ Africa's Talking inbound SMS callback should point to the Render service:
 https://<render-service-host>/api/sms/webhook
 ```
 
-The webhook accepts Africa's Talking form fields: `from`, `to`, `text`, `linkId`, `id`, and `date`. The backend resolves the deal by `linkId` or `dealId`, then by sender phone, and derives the reply role from the stored buyer or seller phone number.
+The webhook accepts Africa's Talking form fields: `from`, `to`, `text`, `linkId`, `id`, and `date`. The backend resolves the deal by `linkId` or `dealId`, then by sender phone, and derives the reply role from the stored buyer or seller phone number. If one phone has multiple active deals, replies must include the ref, for example `YES DL-1001`.
 
 SMS backend endpoints:
 
@@ -215,11 +217,24 @@ SMS backend endpoints:
 POST /api/sms/notify
 POST /api/sms/webhook
 POST /api/sms/run-reminders
+POST /api/sms/run-fee-reminders
 ```
 
-Use `POST /api/sms/notify` with `event: "new_deal"` to persist a deal and send the initial seller request. Use `POST /api/sms/run-reminders` from Render Cron, or another scheduler, to send the 2-hour reminder SMS for active deals that have not yet been reminded. Keep in-process reminders disabled in production unless there is only one backend instance.
+Use `POST /api/sms/notify` with `event: "new_deal"` to persist a deal and send the initial seller request. When `FOUNDER_PHONE` is configured, the backend sends separate `DNOLS ADMIN` summaries to the founder for deal events. Use `POST /api/sms/run-reminders` from Render Cron, or another scheduler, to send the 2-hour reminder SMS for active deals that have not yet been reminded. Use `POST /api/sms/run-fee-reminders` from a daily/hourly cron to notify the founder when completed deal fees remain pending after 24 hours. Keep in-process reminders disabled in production unless there is only one backend instance.
 
 Firestore rules deploy server-only `deals` and `dealPhoneIndex` collections with client `read` and `write` denied. The Render backend may still write them through `firebase-admin`, because Admin SDK access bypasses Firestore Security Rules.
+
+### Risk Control Operations
+
+The deployed frontend and Render backend now enforce or surface these controls:
+
+- Public and authenticated deal-request flows mark first deals for manual review and block/warn at 5 requests per day.
+- New, unverified, or capability-unconfirmed sellers are forced to human review before payment instructions are released.
+- Hard max deal values cannot be auto-approved, including AI-assisted decisions.
+- SMS failures/skips are stored as dashboard fallback notification entries on server-side deals.
+- Counter-offer loops escalate after 3 rounds.
+
+Operational/legal controls still remain outside code: real business/KYC verification, payment licensing review before touching funds, dispute/refund procedures, backup operator coverage, and provider outage monitoring.
 
 ## Stripe Payment Links
 

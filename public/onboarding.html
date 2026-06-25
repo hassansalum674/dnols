@@ -277,6 +277,15 @@
         gap: 10px;
       }
 
+      .legal-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
       .message {
         border-left: 3px solid var(--border);
         color: var(--text-2);
@@ -742,6 +751,10 @@
               When you submit, we build the business agent profile, score readiness, and store it for review.
               Deal requests will still require human approval before execution.
             </p>
+            <label class="small">
+              <input name="capabilityAccuracyConfirmed" type="checkbox" value="true" required />
+              I confirm these capabilities, service areas, delivery terms, pricing rules, and approval limits are accurate.
+            </label>
           </div>
 
           <div class="actions">
@@ -751,6 +764,11 @@
           </div>
         </form>
         <div id="listingStatus" class="status"></div>
+        <div class="legal-links" aria-label="Legal links">
+          <a href="/terms.html">Terms</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+        </div>
       </section>
     </main>
 

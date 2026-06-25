@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy - Dnols</title>
+    <meta name="description" content="Privacy Policy for Dnols business agent accounts, registry listings, deal workflows, SMS, email, and AI-assisted services." />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@600;700&display=swap" />
+    <style>
+      :root {
+        --bg: #05060a;
+        --surface: #0d0f18;
+        --border: #1c1f2e;
+        --brand: #4f6ef7;
+        --accent: #00e5c3;
+        --text-1: #f0f1f5;
+        --text-2: #a2a7bc;
+        --text-3: #6d728a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(79, 110, 247, 0.18), transparent 34rem),
+          var(--bg);
+        color: var(--text-1);
+        font-family: "Inter", system-ui, sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .container {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .nav {
+        border-bottom: 1px solid var(--border);
+        background: rgba(5, 6, 10, 0.78);
+        backdrop-filter: blur(20px);
+      }
+
+      .nav-inner,
+      .footer-inner {
+        min-height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-1);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .brand-logo {
+        width: 24px;
+        height: 24px;
+        filter: invert(1);
+      }
+
+      .nav-links,
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        color: var(--text-2);
+        font-size: 14px;
+      }
+
+      .nav-links a,
+      .footer-links a {
+        text-decoration: none;
+      }
+
+      main {
+        padding: 64px 0 84px;
+      }
+
+      .hero {
+        margin-bottom: 32px;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2 {
+        font-family: "Lora", Georgia, serif;
+        letter-spacing: -0.035em;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 14px 0 0;
+        font-size: clamp(36px, 7vw, 58px);
+        line-height: 1.08;
+      }
+
+      .updated {
+        margin: 18px 0 0;
+        color: var(--text-3);
+      }
+
+      .policy {
+        display: grid;
+        gap: 18px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+        padding: clamp(22px, 4vw, 36px);
+      }
+
+      section {
+        padding-top: 12px;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 24px;
+      }
+
+      p,
+      li {
+        color: var(--text-2);
+        line-height: 1.7;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      strong {
+        color: var(--text-1);
+      }
+
+      .summary {
+        border-left: 3px solid var(--brand);
+        padding-left: 14px;
+      }
+
+      .footer {
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      @media (max-width: 720px) {
+        .nav-inner,
+        .footer-inner {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 18px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container nav-inner">
+        <a class="logo" href="/">
+          <img class="brand-logo" src="/logo.png" alt="" aria-hidden="true" />
+          <span>Dnols</span>
+        </a>
+        <div class="nav-links">
+          <a href="/terms.html">Terms</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+          <a href="/login.html">Sign in</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container">
+      <header class="hero">
+        <div class="eyebrow">Legal</div>
+        <h1>Privacy Policy</h1>
+        <p class="updated">Effective date: June 24, 2026</p>
+      </header>
+
+      <article class="policy">
+        <p class="summary">
+          This Privacy Policy explains what information Dnols collects, how we use it, and how it may be shared when you use our website, dashboard, registry, deal workflows, SMS and email notifications, password reset tools, APIs, and AI-assisted features.
+        </p>
+
+        <section>
+          <h2>1. Information We Collect</h2>
+          <p>Depending on how you use Dnols, we may collect:</p>
+          <ul>
+            <li><strong>Account information:</strong> business name, business email, login identity, Firebase user ID, plan, account status, and profile status.</li>
+            <li><strong>Authentication information:</strong> Firebase Auth records, sign-in provider information, password reset challenge IDs, hashed reset codes, reset session metadata, expiry timestamps, and attempt/rate-limit data. We do not store plaintext reset codes after sending them.</li>
+            <li><strong>Business profile information:</strong> domain, category, country, region, language, summary, capability descriptions, tags, contact email, approval email, approval phone, pricing model, payment terms, execution preferences, endpoint details, and owner-configured rules.</li>
+            <li><strong>Private dashboard settings:</strong> agent name, tone, personality, private rules, minimum prices, quote ranges, discount limits, approval thresholds, blocked regions or customers, API execution preferences, memory, policies, FAQs, partner lists, and notification preferences.</li>
+            <li><strong>Deal and order information:</strong> requester names and emails, target businesses, capabilities, requirements, deadlines, budgets, currencies, approval codes, decisions, reasons, messages, confirmations, disputes, and audit events.</li>
+            <li><strong>SMS and email information:</strong> phone numbers, message text, deal references, SMS replies, delivery metadata, email verification and reset delivery metadata, reminders, and dispute notifications.</li>
+            <li><strong>AI workflow information:</strong> prompts and compact business/deal context sent from the server to AI providers for chat, negotiation drafts, request evaluation, and agent-to-agent negotiation. We try to avoid sending secrets and unnecessary private data.</li>
+            <li><strong>Website and technical information:</strong> public website URLs submitted for profile generation, extracted public website metadata, IP address, user agent, page URL, timestamps, request metadata, and error or health-check data.</li>
+            <li><strong>Local preferences:</strong> browser-local preferences such as dashboard theme.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>2. How We Use Information</h2>
+          <p>We use information to:</p>
+          <ul>
+            <li>create and manage business accounts, dashboards, profiles, and registry listings;</li>
+            <li>verify business email addresses and reset passwords securely;</li>
+            <li>validate, score, review, publish, search, and distribute agent-ready business listings;</li>
+            <li>route deal requests, approvals, orders, messages, confirmations, reminders, fee notices, and disputes;</li>
+            <li>send operational SMS and email notifications;</li>
+            <li>provide AI-assisted drafts, summaries, recommendations, and negotiation support;</li>
+            <li>protect Dnols, investigate abuse, enforce policies, prevent fraud, and maintain security;</li>
+            <li>operate, debug, improve, and measure the service.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>3. Public Registry Publication</h2>
+          <p>
+            Some business listing information may be published in public registry files, public APIs, search results, protocol adapters, crawlable endpoints, and generated agent files. Public listing information may include business name, namespace, domain, summary, capabilities, tags, endpoints, verification status, score, and other fields intended for discovery.
+          </p>
+          <p>
+            Dnols is designed so private floor prices, API keys, hidden rules, internal notes, execution secrets, and private minimum prices should not be published. You are responsible for reviewing information before asking Dnols to publish it.
+          </p>
+        </section>
+
+        <section>
+          <h2>4. AI Processing</h2>
+          <p>
+            Dnols may send compact business, agent, deal, request, or message context to AI providers such as Groq, Google Gemini, and Anthropic Claude. We use these providers to generate drafts, summaries, evaluations, and agent responses. AI providers may process the information according to their own terms and policies. Do not submit secrets, credentials, or confidential information unless you are authorized to do so.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. SMS and Email Processing</h2>
+          <p>
+            Dnols may use Resend for email delivery and Africa's Talking for SMS delivery and inbound reply processing. These providers receive the information needed to deliver or process messages, such as recipient email addresses, phone numbers, message contents, sender ID, delivery metadata, and reply text.
+          </p>
+          <p>
+            SMS replies can update deal status or route messages to a deal partner. If you provide a shared phone number or email address, make sure only authorized people can access it.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Authentication, Hosting, Storage, and Payments</h2>
+          <p>
+            Dnols uses Firebase and Google services for authentication, hosting, Firestore database storage, and server-side password updates when configured. Backend APIs may run on Render. Payment or plan checkout may redirect to Stripe Payment Links or other payment services. Those providers may collect and process information under their own terms and policies.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Sharing Information</h2>
+          <p>We may share information:</p>
+          <ul>
+            <li>with service providers that host, store, deliver, secure, process, or support Dnols;</li>
+            <li>with AI providers when needed to generate requested AI-assisted output;</li>
+            <li>with SMS and email providers for delivery and inbound processing;</li>
+            <li>with payment providers when you choose to pay or follow a payment link;</li>
+            <li>with buyers, sellers, business owners, or deal partners as necessary to route deal workflows;</li>
+            <li>publicly, when information is included in a public registry listing or public crawl endpoint;</li>
+            <li>when required by law, legal process, security needs, or enforcement of our rights and policies.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>8. Security</h2>
+          <p>
+            Dnols uses technical and organizational measures intended to protect information, including Firebase security rules, server-only handling for provider secrets, hashed verification/reset codes, rate limits, attempt limits, credential isolation, and public/private data separation. No system is perfectly secure, and you are responsible for protecting your account credentials, devices, email accounts, and phone numbers.
+          </p>
+        </section>
+
+        <section>
+          <h2>9. Retention</h2>
+          <p>
+            We keep information for as long as needed to operate Dnols, maintain accounts, support registry publication, process deals, meet legal or security needs, resolve disputes, improve the service, and keep audit records. Some short-lived verification and reset records expire quickly. Public registry information may remain available until removed from published files and caches.
+          </p>
+        </section>
+
+        <section>
+          <h2>10. Your Choices and Requests</h2>
+          <p>
+            Depending on your role and applicable law, you may request access, correction, deletion, export, restriction, or objection regarding your information. Business owners can update many account, profile, and registry fields in the dashboard. Some information may need to be retained for security, legal, audit, dispute, or operational reasons.
+          </p>
+        </section>
+
+        <section>
+          <h2>11. International Processing</h2>
+          <p>
+            Dnols and its service providers may process information in countries other than where you are located. By using Dnols, you understand that information may be transferred to and processed by providers in different jurisdictions.
+          </p>
+        </section>
+
+        <section>
+          <h2>12. Children</h2>
+          <p>
+            Dnols is designed for business use and is not intended for children. Do not use Dnols if you are not legally able to enter into business arrangements or provide business information.
+          </p>
+        </section>
+
+        <section>
+          <h2>13. Changes and Contact</h2>
+          <p>
+            We may update this Privacy Policy as Dnols changes. The effective date above shows when this version took effect. For privacy questions or requests, contact Dnols through the support or contact channel provided on the website.
+          </p>
+        </section>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>&copy; 2026 Dnols</span>
+        <div class="footer-links">
+          <a href="/terms.html">Terms</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/disclaimer.html">Disclaimer</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,7 +1,8 @@
 import { DEAL_EVENT } from "./deal-flow.js";
-import { sendDealEvent } from "./sms-notifier.js";
+import { FOUNDER_SMS_TYPE, sendDealEvent, sendFounderNotification } from "./sms-notifier.js";
 
 export const DEFAULT_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
+export const DEFAULT_FEE_UNPAID_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const AWAITING_RESPONSE_STATUSES = new Set([
   "initiated",
@@ -46,6 +47,54 @@ export async function runDealReminders({
     const remindedAt = timestamp.toISOString();
     const updatedDeal = await store.updateDeal(deal.dealId, { remindedAt, lastNotifiedAt: remindedAt });
     results.push({ ...result, deal: updatedDeal || result.deal });
+  }
+
+  return {
+    scanned: dueDeals.length,
+    reminded: results.length,
+    results
+  };
+}
+
+export function selectDealsWithUnpaidFees(deals = [], now = new Date(), { windowMs = DEFAULT_FEE_UNPAID_WINDOW_MS } = {}) {
+  const nowMs = toTime(now);
+  return deals.filter((deal) => {
+    if (clean(deal.status) !== "complete") return false;
+    if (deal.founderFeeUnpaidNotifiedAt) return false;
+    if (clean(deal.feeCollectionStatus || deal.collected) === "paid") return false;
+    const completedMs = toTime(deal.completedAt || deal.updatedAt);
+    return Number.isFinite(completedMs) && nowMs - completedMs >= windowMs;
+  });
+}
+
+export async function runFounderFeeReminders({
+  store,
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  smsService,
+  now = () => new Date(),
+  windowMs = DEFAULT_FEE_UNPAID_WINDOW_MS
+} = {}) {
+  if (!store) throw new Error("Deal reminder store is required.");
+  const timestamp = now();
+  const completedDeals = typeof store.listDealsByStatus === "function"
+    ? await store.listDealsByStatus(["complete"])
+    : [];
+  const dueDeals = selectDealsWithUnpaidFees(completedDeals, timestamp, { windowMs });
+  const results = [];
+
+  for (const deal of dueDeals) {
+    const founderResult = await sendFounderNotification({
+      deal,
+      type: FOUNDER_SMS_TYPE.FEE_UNPAID,
+      env,
+      fetchImpl,
+      smsService,
+      now: () => timestamp
+    });
+    const notifiedAt = timestamp.toISOString();
+    const updatedDeal = await store.updateDeal(deal.dealId, { founderFeeUnpaidNotifiedAt: notifiedAt });
+    results.push({ deal: updatedDeal || deal, founderResult });
   }
 
   return {

@@ -156,6 +156,7 @@ service cloud.firestore {
           'capability',
           'requirements',
           'budget',
+          'riskControls',
           'dealSummary',
           'approval',
           'createdAt',
@@ -171,6 +172,15 @@ service cloud.firestore {
         && request.resource.data.capability is map
         && request.resource.data.requirements is map
         && request.resource.data.budget is map
+        && request.resource.data.riskControls is map
+        && request.resource.data.riskControls.dailyRequestCount is int
+        && request.resource.data.riskControls.dailyRequestCount >= 1
+        && request.resource.data.riskControls.dailyRequestCount <= 5
+        && request.resource.data.riskControls.dailyRequestLimit == 5
+        && request.resource.data.riskControls.manualReviewRequired == true
+        && request.resource.data.riskControls.manualReviewReason is string
+        && request.resource.data.riskControls.manualReviewReason.size() <= 80
+        && request.resource.data.riskControls.firstDealsThreshold == 3
         && request.resource.data.dealSummary is string
         && request.resource.data.dealSummary.size() >= 20
         && request.resource.data.dealSummary.size() <= 1200
