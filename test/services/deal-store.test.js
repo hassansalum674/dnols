@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMemoryDealStore } from "../../src/services/deal-store.js";
+import { createDealStore, createMemoryDealStore } from "../../src/services/deal-store.js";
+import {
+  getFirebaseAdminConfig,
+  initializeFirebaseAdminApp
+} from "../../src/services/firebase-admin.js";
 
 test("memory deal store saves deals and indexes buyer and seller phones", async () => {
   const store = createMemoryDealStore({ state: { deals: new Map(), phoneIndex: new Map() } });
@@ -45,4 +49,52 @@ test("memory deal store updates active deals and can clear reminder fields", asy
 
   await store.updateDeal("DL-STORE-2", { status: "complete" });
   assert.deepEqual(await store.listActiveDeals(), []);
+});
+
+test("deal store uses memory backend when Firebase config is absent", async () => {
+  const store = createDealStore({ env: {} });
+
+  const saved = await store.saveDeal({
+    dealId: "DL-MEMORY-FALLBACK",
+    buyer: { phone: "+255712345678" },
+    seller: { phone: "+255798765432" }
+  });
+
+  assert.equal(saved.dealId, "DL-MEMORY-FALLBACK");
+  assert.equal((await store.getDeal("DL-MEMORY-FALLBACK")).seller.phone, "+255798765432");
+});
+
+test("Firebase Admin helper initializes from modular ESM app exports", () => {
+  const initialized = [];
+  const fakeCredential = { type: "credential" };
+  const appModule = {
+    cert(serviceAccount) {
+      assert.equal(serviceAccount.project_id, "dnols-prod");
+      assert.equal(serviceAccount.client_email, "firebase-admin@example.com");
+      assert.equal(serviceAccount.private_key, "redacted-test-key");
+      return fakeCredential;
+    },
+    getApps() {
+      return [];
+    },
+    initializeApp(options) {
+      initialized.push(options);
+      return { name: "[DEFAULT]" };
+    }
+  };
+
+  const app = initializeFirebaseAdminApp(appModule, getFirebaseAdminConfig({
+    FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
+      project_id: "dnols-prod",
+      client_email: "firebase-admin@example.com",
+      private_key: "redacted-test-key"
+    }),
+    FIREBASE_DATABASE_URL: "https://dnols-prod.firebaseio.com"
+  }));
+
+  assert.deepEqual(app, { name: "[DEFAULT]" });
+  assert.equal(initialized.length, 1);
+  assert.equal(initialized[0].projectId, "dnols-prod");
+  assert.equal(initialized[0].databaseURL, "https://dnols-prod.firebaseio.com");
+  assert.equal(initialized[0].credential, fakeCredential);
 });

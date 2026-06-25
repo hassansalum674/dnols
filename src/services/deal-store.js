@@ -1,4 +1,5 @@
 import { normalizePhoneNumber } from "./sms.js";
+import { getFirebaseAdminConfig, isFirebaseAdminModuleMissing, loadFirestore } from "./firebase-admin.js";
 
 const DEFAULT_COLLECTION = "deals";
 const DEFAULT_PHONE_INDEX_COLLECTION = "dealPhoneIndex";
@@ -197,31 +198,24 @@ export function normalizeDeal(deal = {}, { now = () => new Date(), existing = {}
 
 function getFirestoreConfig(env = {}) {
   const explicitlyEnabled = /^(firestore|firebase)$/i.test(clean(env.DEAL_STORE_BACKEND));
-  const hasProjectConfig = Boolean(clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT));
+  const adminConfig = getFirebaseAdminConfig(env);
   return {
-    enabled: explicitlyEnabled || hasProjectConfig || Boolean(clean(env.GOOGLE_APPLICATION_CREDENTIALS)),
-    projectId: clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT),
-    databaseURL: clean(env.FIREBASE_DATABASE_URL),
+    ...adminConfig,
+    enabled: explicitlyEnabled || adminConfig.enabled,
     collectionName: clean(env.DEAL_STORE_COLLECTION) || DEFAULT_COLLECTION,
     phoneIndexCollectionName: clean(env.DEAL_PHONE_INDEX_COLLECTION) || DEFAULT_PHONE_INDEX_COLLECTION
   };
 }
 
 async function createFirestoreDealStore(config, fallback, now) {
-  let admin;
+  let db;
   try {
-    admin = await import("firebase-admin");
-  } catch {
-    return fallback;
+    db = await loadFirestore(config);
+  } catch (error) {
+    if (isFirebaseAdminModuleMissing(error)) return fallback;
+    throw error;
   }
 
-  const app = admin.getApps?.().length
-    ? admin.getApp()
-    : admin.initializeApp({
-        projectId: config.projectId || undefined,
-        databaseURL: config.databaseURL || undefined
-      });
-  const db = admin.getFirestore ? admin.getFirestore(app) : app.firestore();
   const deals = db.collection(config.collectionName);
   const phoneIndex = db.collection(config.phoneIndexCollectionName);
 

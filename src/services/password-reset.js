@@ -1,5 +1,6 @@
 import { createHash, randomBytes as nodeRandomBytes, timingSafeEqual } from "node:crypto";
 import { classifyEmailDomain, extractEmailDomain, normalizeEmail } from "./business-email.js";
+import { getFirebaseAdminConfig, isFirebaseAdminModuleMissing, loadFirebaseAuth } from "./firebase-admin.js";
 
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const RESET_AUTH_TTL_MS = 5 * 60 * 1000;
@@ -307,7 +308,7 @@ function createFirebasePasswordUpdater({ env = process.env } = {}) {
       if (code === "auth/invalid-password" || code === "invalid-password") {
         return failure(422, "weak_password", "Use a stronger new password.");
       }
-      if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+      if (isFirebaseAdminModuleMissing(error)) {
         return failure(
           503,
           "firebase_admin_not_configured",
@@ -317,41 +318,6 @@ function createFirebasePasswordUpdater({ env = process.env } = {}) {
       return failure(503, "firebase_password_update_failed", "Password could not be updated right now.");
     }
   };
-}
-
-async function loadFirebaseAuth(config) {
-  const appModule = await import("firebase-admin/app");
-  const authModule = await import("firebase-admin/auth");
-  const apps = appModule.getApps();
-  const app = apps.length
-    ? appModule.getApp()
-    : appModule.initializeApp(firebaseAdminOptions(appModule, config));
-  return authModule.getAuth(app);
-}
-
-function getFirebaseAdminConfig(env = {}) {
-  const serviceAccountJson = clean(env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  return {
-    enabled: Boolean(
-      clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT) ||
-      clean(env.GOOGLE_APPLICATION_CREDENTIALS) ||
-      serviceAccountJson
-    ),
-    projectId: clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT),
-    databaseURL: clean(env.FIREBASE_DATABASE_URL),
-    serviceAccountJson
-  };
-}
-
-function firebaseAdminOptions(appModule, config) {
-  const options = {
-    projectId: config.projectId || undefined,
-    databaseURL: config.databaseURL || undefined
-  };
-  if (config.serviceAccountJson && typeof appModule.cert === "function") {
-    options.credential = appModule.cert(JSON.parse(config.serviceAccountJson));
-  }
-  return options;
 }
 
 function safeEqual(left, right) {
