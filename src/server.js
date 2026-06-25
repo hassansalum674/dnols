@@ -309,10 +309,11 @@ async function route(request, response) {
       const results = await sendDealNotifications({ deal: persistedDeal, notifications });
       sendJson(response, 200, { ok: true, deal: persistedDeal, notifications, results });
     } catch (error) {
-      sendJson(response, 422, {
+      const knownCode = safeErrorCode(error);
+      sendJson(response, Number(error?.statusCode) || 422, {
         ok: false,
-        error: "sms_notify_failed",
-        message: error instanceof Error ? error.message : "Could not send SMS notification."
+        error: knownCode || "sms_notify_failed",
+        message: safeErrorMessage(error, "Could not send SMS notification.")
       });
     }
     return;
@@ -700,6 +701,16 @@ function sendRaw(response, statusCode, body, contentType) {
     "Content-Type": contentType
   });
   response.end(body);
+}
+
+function safeErrorCode(error) {
+  const code = String(error?.code || "");
+  return /^firebase_[a-z0-9_]+$/.test(code) ? code : "";
+}
+
+function safeErrorMessage(error, fallback) {
+  if (error?.publicMessage) return String(error.publicMessage);
+  return error instanceof Error ? error.message : fallback;
 }
 
 function getOrigin(request) {

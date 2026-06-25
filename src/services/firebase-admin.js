@@ -1,6 +1,7 @@
 export function getFirebaseAdminConfig(env = {}) {
   const serviceAccountJson = clean(env.FIREBASE_SERVICE_ACCOUNT_JSON);
   const projectId = clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT);
+  const serviceAccount = inspectServiceAccountJson(serviceAccountJson);
   return {
     enabled: Boolean(
       projectId ||
@@ -9,7 +10,10 @@ export function getFirebaseAdminConfig(env = {}) {
     ),
     projectId,
     databaseURL: clean(env.FIREBASE_DATABASE_URL),
-    serviceAccountJson
+    serviceAccountJson,
+    serviceAccountProjectId: serviceAccount.projectId,
+    serviceAccountJsonValid: serviceAccount.valid,
+    credentialSource: resolveCredentialSource(env, serviceAccountJson, serviceAccount)
   };
 }
 
@@ -53,9 +57,52 @@ export function isFirebaseAdminModuleMissing(error) {
   return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
 
+export function getFirebaseAdminDiagnostics(config = {}) {
+  const projectId = clean(config.projectId);
+  const serviceAccountProjectId = clean(config.serviceAccountProjectId);
+  return {
+    enabled: Boolean(config.enabled),
+    projectId: projectId || serviceAccountProjectId || "unspecified",
+    explicitProjectId: Boolean(projectId),
+    serviceAccountProjectId: serviceAccountProjectId || "unspecified",
+    projectIdMismatch: Boolean(projectId && serviceAccountProjectId && projectId !== serviceAccountProjectId),
+    credentialSource: clean(config.credentialSource) || "application_default_credentials",
+    serviceAccountJsonValid: config.serviceAccountJson ? Boolean(config.serviceAccountJsonValid) : undefined,
+    hasDatabaseURL: Boolean(clean(config.databaseURL))
+  };
+}
+
 function parseServiceAccountJson(value) {
   const json = clean(value);
-  return json ? JSON.parse(json) : null;
+  if (!json) return null;
+  try {
+    return JSON.parse(json);
+  } catch (error) {
+    const wrapped = new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.");
+    wrapped.code = "firebase_admin_service_account_invalid";
+    wrapped.cause = error;
+    throw wrapped;
+  }
+}
+
+function inspectServiceAccountJson(value) {
+  const json = clean(value);
+  if (!json) return { valid: undefined, projectId: "" };
+  try {
+    const parsed = JSON.parse(json);
+    return { valid: true, projectId: clean(parsed?.project_id) };
+  } catch {
+    return { valid: false, projectId: "" };
+  }
+}
+
+function resolveCredentialSource(env = {}, serviceAccountJson, serviceAccount = {}) {
+  if (serviceAccountJson) {
+    return serviceAccount.valid ? "FIREBASE_SERVICE_ACCOUNT_JSON" : "FIREBASE_SERVICE_ACCOUNT_JSON_INVALID";
+  }
+  if (clean(env.GOOGLE_APPLICATION_CREDENTIALS)) return "GOOGLE_APPLICATION_CREDENTIALS";
+  if (clean(env.FIREBASE_PROJECT_ID || env.GOOGLE_CLOUD_PROJECT)) return "APPLICATION_DEFAULT_CREDENTIALS";
+  return "none";
 }
 
 function clean(value) {

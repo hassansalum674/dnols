@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDealStore, createMemoryDealStore } from "../../src/services/deal-store.js";
 import {
+  createDealStore,
+  createMemoryDealStore,
+  normalizeFirestoreStoreError
+} from "../../src/services/deal-store.js";
+import {
+  getFirebaseAdminDiagnostics,
   getFirebaseAdminConfig,
   initializeFirebaseAdminApp
 } from "../../src/services/firebase-admin.js";
@@ -97,4 +102,54 @@ test("Firebase Admin helper initializes from modular ESM app exports", () => {
   assert.equal(initialized[0].projectId, "dnols-prod");
   assert.equal(initialized[0].databaseURL, "https://dnols-prod.firebaseio.com");
   assert.equal(initialized[0].credential, fakeCredential);
+});
+
+test("Firebase Admin diagnostics report sanitized credential source and project mismatch", () => {
+  const config = getFirebaseAdminConfig({
+    FIREBASE_PROJECT_ID: "dnols-prod",
+    FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
+      project_id: "dnols-staging",
+      client_email: "firebase-admin@example.com",
+      private_key: "redacted-test-key"
+    })
+  });
+
+  assert.deepEqual(getFirebaseAdminDiagnostics(config), {
+    enabled: true,
+    projectId: "dnols-prod",
+    explicitProjectId: true,
+    serviceAccountProjectId: "dnols-staging",
+    projectIdMismatch: true,
+    credentialSource: "FIREBASE_SERVICE_ACCOUNT_JSON",
+    serviceAccountJsonValid: true,
+    hasDatabaseURL: false
+  });
+});
+
+test("Firestore permission failures are mapped to safe Firebase configuration errors", () => {
+  const originalError = new Error("7 PERMISSION_DENIED: Received HTTP status code 403");
+  originalError.code = 7;
+  const config = getFirebaseAdminConfig({
+    FIREBASE_PROJECT_ID: "dnols-prod",
+    FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ project_id: "dnols-prod" })
+  });
+  const originalConsoleError = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args);
+
+  try {
+    const error = normalizeFirestoreStoreError(originalError, config, "getDeal");
+
+    assert.equal(error.code, "firebase_firestore_permission_denied");
+    assert.equal(error.statusCode, 503);
+    assert.match(error.publicMessage, /Firebase Admin cannot access Firestore/);
+    assert.match(error.publicMessage, /dnols-prod/);
+    assert.equal(error.cause, originalError);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0][1].firebase.credentialSource, "FIREBASE_SERVICE_ACCOUNT_JSON");
+    assert.equal(logs[0][1].firebase.serviceAccountProjectId, "dnols-prod");
+    assert.equal(logs[0][1].operation, "getDeal");
+  } finally {
+    console.error = originalConsoleError;
+  }
 });

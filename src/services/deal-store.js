@@ -1,5 +1,10 @@
 import { normalizePhoneNumber } from "./sms.js";
-import { getFirebaseAdminConfig, isFirebaseAdminModuleMissing, loadFirestore } from "./firebase-admin.js";
+import {
+  getFirebaseAdminConfig,
+  getFirebaseAdminDiagnostics,
+  isFirebaseAdminModuleMissing,
+  loadFirestore
+} from "./firebase-admin.js";
 
 const DEFAULT_COLLECTION = "deals";
 const DEFAULT_PHONE_INDEX_COLLECTION = "dealPhoneIndex";
@@ -16,46 +21,44 @@ export function createDealStore({ env = process.env, now = () => new Date() } = 
   if (!firestoreConfig.enabled) return memory;
 
   let firestoreStore;
+  const runFirestoreOperation = async (operation, method, ...args) => {
+    try {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return await firestoreStore[method](...args);
+    } catch (error) {
+      throw normalizeFirestoreStoreError(error, firestoreConfig, operation);
+    }
+  };
   return {
     async saveDeal(deal = {}) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.saveDeal(deal);
+      return runFirestoreOperation("saveDeal", "saveDeal", deal);
     },
     async getDeal(dealId) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.getDeal(dealId);
+      return runFirestoreOperation("getDeal", "getDeal", dealId);
     },
     async findDealByPhone(phone) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.findDealByPhone(phone);
+      return runFirestoreOperation("findDealByPhone", "findDealByPhone", phone);
     },
     async listActiveDeals() {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.listActiveDeals();
+      return runFirestoreOperation("listActiveDeals", "listActiveDeals");
     },
     async listDealsByStatus(statuses = []) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.listDealsByStatus(statuses);
+      return runFirestoreOperation("listDealsByStatus", "listDealsByStatus", statuses);
     },
     async findActiveDealsByPhone(phone) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.findActiveDealsByPhone(phone);
+      return runFirestoreOperation("findActiveDealsByPhone", "findActiveDealsByPhone", phone);
     },
     async updateDeal(dealId, patch = {}) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.updateDeal(dealId, patch);
+      return runFirestoreOperation("updateDeal", "updateDeal", dealId, patch);
     },
     async mirrorBusinessDeal(deal = {}, patch = {}) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.mirrorBusinessDeal(deal, patch);
+      return runFirestoreOperation("mirrorBusinessDeal", "mirrorBusinessDeal", deal, patch);
     },
     async appendBusinessConversationMessage(input = {}) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.appendBusinessConversationMessage(input);
+      return runFirestoreOperation("appendBusinessConversationMessage", "appendBusinessConversationMessage", input);
     },
     async createBusinessNotification(input = {}) {
-      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
-      return firestoreStore.createBusinessNotification(input);
+      return runFirestoreOperation("createBusinessNotification", "createBusinessNotification", input);
     }
   };
 }
@@ -319,6 +322,67 @@ async function createFirestoreDealStore(config, fallback, now) {
   };
 }
 
+export function normalizeFirestoreStoreError(error, config = {}, operation = "unknown") {
+  if (isFirebaseAdminModuleMissing(error) || isStoreConfigurationError(error)) return error;
+
+  const diagnostics = getFirebaseAdminDiagnostics(config);
+  const code = firestoreStoreErrorCode(error);
+  if (!code) return error;
+
+  const wrapped = new Error(firestoreStoreErrorMessage(code, diagnostics));
+  wrapped.code = code;
+  wrapped.statusCode = 503;
+  wrapped.publicMessage = wrapped.message;
+  wrapped.operation = operation;
+  wrapped.diagnostics = diagnostics;
+  wrapped.cause = error;
+
+  console.error("Firestore deal store operation failed", {
+    code,
+    operation,
+    firebase: diagnostics,
+    causeCode: clean(error?.code || error?.errorInfo?.code),
+    causeMessage: truncate(clean(error?.message), 240)
+  });
+
+  return wrapped;
+}
+
+function firestoreStoreErrorCode(error) {
+  const code = clean(error?.code || error?.errorInfo?.code);
+  const message = clean(error?.message);
+  const details = clean(error?.details);
+  const status = Number(error?.status || error?.statusCode || error?.httpStatus);
+  const combined = `${code} ${message} ${details}`;
+
+  if (code === "firebase_admin_service_account_invalid") return "firebase_admin_service_account_invalid";
+  if (status === 403 || code === "7" || /permission_denied|status code 403|forbidden/i.test(combined)) {
+    return "firebase_firestore_permission_denied";
+  }
+  if (/firestore.*not.*enabled|cloud datastore.*not.*enabled|database.*not.*found|not_found|failed_precondition/i.test(combined)) {
+    return "firebase_firestore_not_available";
+  }
+  return "";
+}
+
+function firestoreStoreErrorMessage(code, diagnostics = {}) {
+  const project = diagnostics.projectId || "unspecified";
+  if (code === "firebase_admin_service_account_invalid") {
+    return "Firebase Admin is misconfigured: FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.";
+  }
+  if (code === "firebase_firestore_not_available") {
+    return `Firestore is not available for Firebase project "${project}". Enable Cloud Firestore in Native mode and verify the configured project.`;
+  }
+  const mismatch = diagnostics.projectIdMismatch
+    ? " The configured FIREBASE_PROJECT_ID does not match the service account project_id."
+    : "";
+  return `Firebase Admin cannot access Firestore for project "${project}". Check FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_PROJECT_ID, Firestore API status, and service account IAM permissions.${mismatch}`;
+}
+
+function isStoreConfigurationError(error) {
+  return String(error?.code || "").startsWith("firebase_firestore_");
+}
+
 async function writePhoneIndex(collection, deal) {
   const entries = phoneIndexEntries(deal);
   await Promise.all(entries.map(([phone, role]) =>
@@ -417,6 +481,10 @@ function iso(value) {
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function truncate(value, maxLength) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
 }
 
 function slugify(value) {
