@@ -110,20 +110,34 @@ test("Firebase Admin diagnostics report sanitized credential source and project 
     FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
       project_id: "dnols-staging",
       client_email: "firebase-admin@example.com",
-      private_key: "redacted-test-key"
+      private_key: "redacted-test-key",
+      private_key_id: "redacted-test-key-id",
+      client_id: "redacted-test-client-id",
+      token_uri: "https://oauth2.googleapis.com/token"
     })
   });
+  const diagnostics = getFirebaseAdminDiagnostics(config);
 
-  assert.deepEqual(getFirebaseAdminDiagnostics(config), {
+  assert.deepEqual(diagnostics, {
     enabled: true,
     projectId: "dnols-prod",
     explicitProjectId: true,
     serviceAccountProjectId: "dnols-staging",
+    serviceAccountEmail: "firebase-admin@example.com",
     projectIdMismatch: true,
     credentialSource: "FIREBASE_SERVICE_ACCOUNT_JSON",
     serviceAccountJsonValid: true,
-    hasDatabaseURL: false
+    hasDatabaseURL: false,
+    hasFirebaseProjectId: true,
+    hasGoogleCloudProject: false,
+    hasServiceAccountJson: true,
+    hasGoogleApplicationCredentials: false
   });
+  assert.equal(Object.hasOwn(diagnostics, "private_key"), false);
+  assert.equal(Object.hasOwn(diagnostics, "private_key_id"), false);
+  assert.equal(Object.hasOwn(diagnostics, "client_id"), false);
+  assert.equal(Object.hasOwn(diagnostics, "token_uri"), false);
+  assert.equal(Object.hasOwn(diagnostics, "serviceAccountJson"), false);
 });
 
 test("Firestore permission failures are mapped to safe Firebase configuration errors", () => {

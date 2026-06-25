@@ -32,6 +32,7 @@ import {
   startDealAndNotify
 } from "./services/sms-notifier.js";
 import { createDealStore } from "./services/deal-store.js";
+import { getFirebaseAdminConfig, getFirebaseAdminDiagnostics } from "./services/firebase-admin.js";
 import { runDealReminders, runFounderFeeReminders, startDealReminderInterval } from "./services/deal-reminders.js";
 import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
 import { createPasswordResetVerifier } from "./services/password-reset.js";
@@ -99,6 +100,14 @@ async function route(request, response) {
       service: "dnols-api",
       version: API_VERSION,
       environment: process.env.NODE_ENV || "development"
+    });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/debug/firebase-admin") {
+    sendJson(response, 200, {
+      ok: true,
+      ...getFirebaseAdminDiagnostics(getFirebaseAdminConfig(process.env))
     });
     return;
   }

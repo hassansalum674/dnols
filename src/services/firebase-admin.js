@@ -12,8 +12,13 @@ export function getFirebaseAdminConfig(env = {}) {
     databaseURL: clean(env.FIREBASE_DATABASE_URL),
     serviceAccountJson,
     serviceAccountProjectId: serviceAccount.projectId,
+    serviceAccountEmail: serviceAccount.email,
     serviceAccountJsonValid: serviceAccount.valid,
-    credentialSource: resolveCredentialSource(env, serviceAccountJson, serviceAccount)
+    credentialSource: resolveCredentialSource(env, serviceAccountJson, serviceAccount),
+    hasFirebaseProjectId: Boolean(clean(env.FIREBASE_PROJECT_ID)),
+    hasGoogleCloudProject: Boolean(clean(env.GOOGLE_CLOUD_PROJECT)),
+    hasServiceAccountJson: Boolean(serviceAccountJson),
+    hasGoogleApplicationCredentials: Boolean(clean(env.GOOGLE_APPLICATION_CREDENTIALS))
   };
 }
 
@@ -60,15 +65,21 @@ export function isFirebaseAdminModuleMissing(error) {
 export function getFirebaseAdminDiagnostics(config = {}) {
   const projectId = clean(config.projectId);
   const serviceAccountProjectId = clean(config.serviceAccountProjectId);
+  const serviceAccountEmail = clean(config.serviceAccountEmail);
   return {
     enabled: Boolean(config.enabled),
     projectId: projectId || serviceAccountProjectId || "unspecified",
     explicitProjectId: Boolean(projectId),
     serviceAccountProjectId: serviceAccountProjectId || "unspecified",
+    serviceAccountEmail: serviceAccountEmail || "unspecified",
     projectIdMismatch: Boolean(projectId && serviceAccountProjectId && projectId !== serviceAccountProjectId),
     credentialSource: clean(config.credentialSource) || "application_default_credentials",
     serviceAccountJsonValid: config.serviceAccountJson ? Boolean(config.serviceAccountJsonValid) : undefined,
-    hasDatabaseURL: Boolean(clean(config.databaseURL))
+    hasDatabaseURL: Boolean(clean(config.databaseURL)),
+    hasFirebaseProjectId: Boolean(config.hasFirebaseProjectId),
+    hasGoogleCloudProject: Boolean(config.hasGoogleCloudProject),
+    hasServiceAccountJson: Boolean(config.hasServiceAccountJson),
+    hasGoogleApplicationCredentials: Boolean(config.hasGoogleApplicationCredentials)
   };
 }
 
@@ -87,12 +98,16 @@ function parseServiceAccountJson(value) {
 
 function inspectServiceAccountJson(value) {
   const json = clean(value);
-  if (!json) return { valid: undefined, projectId: "" };
+  if (!json) return { valid: undefined, projectId: "", email: "" };
   try {
     const parsed = JSON.parse(json);
-    return { valid: true, projectId: clean(parsed?.project_id) };
+    return {
+      valid: true,
+      projectId: clean(parsed?.project_id),
+      email: clean(parsed?.client_email)
+    };
   } catch {
-    return { valid: false, projectId: "" };
+    return { valid: false, projectId: "", email: "" };
   }
 }
 
