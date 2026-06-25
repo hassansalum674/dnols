@@ -9,7 +9,9 @@ import {
   getFirebaseAdminDiagnostics,
   getFirebaseAdminConfig,
   initializeFirebaseAdminApp,
-  sanitizeFirebaseAdminError
+  sanitizeFirebaseAdminError,
+  describeFirebaseAdminError,
+  describeFirestoreTarget
 } from "../../src/services/firebase-admin.js";
 
 test("memory deal store saves deals and indexes buyer and seller phones", async () => {
@@ -183,4 +185,34 @@ test("Firebase Admin error sanitizer redacts secret-looking values", () => {
   assert.match(sanitized.message, /\[redacted\]/);
   assert.match(sanitized.details, /\[redacted\]/);
   assert.doesNotMatch(serialized, /secret-token|PRIVATE KEY|key-id|ya29\./);
+});
+
+test("describeFirebaseAdminError exposes full untruncated error without secrets", () => {
+  const longDetail = "Cloud Firestore API has not been used in project dnols-2a394 before or it is disabled. " + "x".repeat(600);
+  const error = new Error(`7 PERMISSION_DENIED: ${longDetail}`);
+  error.code = 7;
+  error.details = longDetail;
+  error.metadata = { getMap: () => ({ "www-authenticate": "Bearer ya29.secret-token" }) };
+  error.private_key = "-----BEGIN PRIVATE KEY-----abc-----END PRIVATE KEY-----";
+
+  const described = describeFirebaseAdminError(error);
+  const serialized = JSON.stringify(described);
+
+  assert.equal(described.grpcCode, 7);
+  assert.equal(described.code, "7");
+  assert.equal(described.name, "Error");
+  assert.ok(described.fullMessage.length > 500, "fullMessage should not be truncated to 500 chars");
+  assert.match(described.fullMessage, /Cloud Firestore API has not been used/);
+  assert.match(described.details, /Cloud Firestore API has not been used/);
+  assert.match(described.metadata, /Bearer \[redacted\]/);
+  assert.ok(described.stack.split("\n").length <= 5, "stack should be capped to ~5 lines");
+  assert.doesNotMatch(serialized, /secret-token|PRIVATE KEY|ya29\.|BEGIN PRIVATE KEY/);
+});
+
+test("describeFirestoreTarget detects the (default) database safely", () => {
+  const target = describeFirestoreTarget({ _databaseId: { database: "(default)", projectId: "dnols-2a394" } });
+  assert.equal(target.databaseId, "(default)");
+  assert.equal(target.isDefaultDatabase, true);
+  assert.equal(target.projectId, "dnols-2a394");
+  assert.doesNotThrow(() => describeFirestoreTarget(undefined));
 });

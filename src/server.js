@@ -36,7 +36,9 @@ import {
   getFirebaseAdminConfig,
   getFirebaseAdminDiagnostics,
   loadFirestore,
-  sanitizeFirebaseAdminError
+  sanitizeFirebaseAdminError,
+  describeFirebaseAdminError,
+  describeFirestoreTarget
 } from "./services/firebase-admin.js";
 import { runDealReminders, runFounderFeeReminders, startDealReminderInterval } from "./services/deal-reminders.js";
 import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
@@ -659,9 +661,11 @@ async function runFirestoreProbe() {
   const checkedAt = new Date().toISOString();
   let writeOk = false;
   let readOk = false;
+  let database;
 
   try {
     const firestore = await loadFirestore(config);
+    database = describeFirestoreTarget(firestore);
     const probeRef = firestore.collection("_debug").doc("firestoreProbe");
     await probeRef.set({ checkedAt, source: "firestore-probe" }, { merge: true });
     writeOk = true;
@@ -672,6 +676,7 @@ async function runFirestoreProbe() {
     return {
       ok: writeOk && readOk,
       ...diagnostics,
+      database,
       writeOk,
       readOk
     };
@@ -679,9 +684,11 @@ async function runFirestoreProbe() {
     return {
       ok: false,
       ...diagnostics,
+      database,
       writeOk,
       readOk,
-      ...sanitizeFirebaseAdminError(error)
+      ...sanitizeFirebaseAdminError(error),
+      error: describeFirebaseAdminError(error)
     };
   }
 }

@@ -92,6 +92,48 @@ export function sanitizeFirebaseAdminError(error) {
   };
 }
 
+// Returns the FULL, untruncated (but secret-redacted) error information. This is
+// intended ONLY for the debug probe path so that Google's complete explanation of
+// a Firestore failure (which is non-secret) is visible. Never include private keys,
+// service account JSON, env values, or tokens; redactSensitiveText strips those.
+export function describeFirebaseAdminError(error) {
+  if (!error || (typeof error !== "object" && typeof error !== "function")) {
+    return pruneUndefined({ fullMessage: redactFull(String(error)) });
+  }
+  return pruneUndefined({
+    name: clean(error.constructor?.name || error.name) || undefined,
+    fullMessage: redactFull(error.message),
+    code: redactFull(error.code ?? error.errorInfo?.code),
+    grpcCode: typeof error.code === "number" ? error.code : undefined,
+    details: redactFull(error.details),
+    reason: redactFull(error.reason ?? error.errorInfo?.reason),
+    status: redactFull(error.status),
+    statusCode: redactFull(error.statusCode ?? error.httpStatus),
+    metadata: stringifyErrorMetadata(error.metadata),
+    statusDetails: stringifyErrorMetadata(error.statusDetails),
+    stack: extractStackHead(error.stack)
+  });
+}
+
+// Best-effort, crash-safe description of which Firestore database the client targets.
+export function describeFirestoreTarget(firestore) {
+  try {
+    const settings = firestore?._settings || {};
+    const databaseId = firestore?._databaseId || firestore?.databaseId || {};
+    const targetId = clean(
+      settings.databaseId ||
+      (typeof databaseId === "string" ? databaseId : databaseId?.database || databaseId?.databaseId)
+    );
+    return pruneUndefined({
+      databaseId: targetId || "(default)",
+      isDefaultDatabase: !targetId || targetId === "(default)",
+      projectId: clean(settings.projectId || databaseId?.projectId) || undefined
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 function parseServiceAccountJson(value) {
   const json = clean(value);
   if (!json) return null;
@@ -137,6 +179,37 @@ function sanitizeErrorValue(value) {
   const text = clean(value);
   if (!text) return undefined;
   return redactSensitiveText(text).slice(0, 500);
+}
+
+// Like sanitizeErrorValue but without the 500-char truncation, for the debug probe.
+function redactFull(value) {
+  const text = clean(value);
+  if (!text) return undefined;
+  return redactSensitiveText(text);
+}
+
+function extractStackHead(stack, lines = 5) {
+  const text = clean(stack);
+  if (!text) return undefined;
+  return redactSensitiveText(text.split("\n").slice(0, lines).join("\n"));
+}
+
+function stringifyErrorMetadata(metadata) {
+  if (metadata === undefined || metadata === null) return undefined;
+  try {
+    let value = metadata;
+    if (typeof metadata.toJSON === "function") value = metadata.toJSON();
+    else if (typeof metadata.getMap === "function") value = metadata.getMap();
+    const text = clean(typeof value === "string" ? value : JSON.stringify(value));
+    if (!text || text === "{}" || text === "[]") return undefined;
+    return redactSensitiveText(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function pruneUndefined(object) {
+  return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined));
 }
 
 function redactSensitiveText(value) {
