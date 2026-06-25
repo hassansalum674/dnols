@@ -16,12 +16,13 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-lite.js";
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { assertBusinessEmail } from "./js/business-email.js";
 
 let appPromise;
@@ -261,6 +262,21 @@ export async function listOwnerCollection(uid, collectionName) {
   const dbInstance = await getDb();
   const snapshot = await getDocs(query(collection(dbInstance, "businessProfiles", uid, collectionName), orderBy("createdAt", "desc")));
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+}
+
+export async function watchBusinessCollection(businessId, collectionName, callback, errorCallback = console.error) {
+  const dbInstance = await getDb();
+  const collectionRef = collection(dbInstance, "businesses", businessId, collectionName);
+  const sortField = collectionName === "conversations"
+    ? "latestMessageAt"
+    : collectionName === "notifications"
+      ? "createdAt"
+      : "updatedAt";
+  return onSnapshot(
+    query(collectionRef, orderBy(sortField, "desc")),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    errorCallback
+  );
 }
 
 export async function listOrderMessages(uid, orderId) {

@@ -22,6 +22,24 @@ const KEYWORD_INTENTS = new Map([
   ["DISPUTE", REPLY_INTENT.DISPUTE]
 ]);
 
+const APPROVAL_PHRASES = [
+  /\b(?:yes|yep|yeah|ok(?:ay)?|proceed|approve|approved|go ahead|do it|confirm)\b/i,
+  /\b(?:ndiyo|sawa|kubali|nakubali|fanya|endelea|thibitisha)\b/i
+];
+
+const DECLINE_PHRASES = [
+  /\b(?:no|nope|reject|decline|declined|cancel|stop|do not|don't)\b/i,
+  /\b(?:hapana|kataa|sikubali|usiende|usifanye|acha)\b/i
+];
+
+const COUNTER_PHRASES = [
+  /\b(?:counter|too expensive|price is high|price is low|too low|too cheap|raise|increase|add|reduce|discount|negotiate)\b/i,
+  /\b(?:bei|ghali|ndogo|ongeza|niongeze|punguza|jadili|majadiliano)\b/i,
+  /\b(?:can we do|make it|what about|instead)\b/i,
+  /(?:\$|usd|tzs|kes|shillings?)\s*\d/i,
+  /\d[\d,]*(?:\.\d+)?\s*(?:\$|usd|tzs|kes|shillings?)\b/i
+];
+
 export function parseSmsReply(rawText) {
   const text = String(rawText ?? "").trim();
   if (!text) {
@@ -43,5 +61,43 @@ export function parseSmsReply(rawText) {
     return { intent, keyword: firstToken, message: "" };
   }
 
+  const naturalIntent = classifyNaturalReply(text);
+  if (naturalIntent !== REPLY_INTENT.UNKNOWN) {
+    return {
+      intent: naturalIntent,
+      keyword: firstToken,
+      message: naturalIntent === REPLY_INTENT.COUNTER || naturalIntent === REPLY_INTENT.MESSAGE ? text : ""
+    };
+  }
+
   return { intent: REPLY_INTENT.UNKNOWN, keyword: firstToken, message: "" };
+}
+
+function classifyNaturalReply(text) {
+  const normalized = normalizeForMatching(text);
+  const approval = matchesAny(APPROVAL_PHRASES, normalized);
+  const decline = matchesAny(DECLINE_PHRASES, normalized);
+  const counter = matchesAny(COUNTER_PHRASES, normalized);
+
+  if (counter && !approval && !decline) return REPLY_INTENT.COUNTER;
+  if (approval && !decline && !counter) return REPLY_INTENT.APPROVE;
+  if (decline && !approval && !counter) return REPLY_INTENT.DECLINE;
+  if (counter) return REPLY_INTENT.COUNTER;
+
+  // TODO: If we expose the existing Groq helper as a small safe classifier,
+  // call it here for ambiguous owner language after these deterministic rules.
+  return REPLY_INTENT.MESSAGE;
+}
+
+function matchesAny(patterns, text) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function normalizeForMatching(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s$,.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

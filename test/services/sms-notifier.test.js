@@ -206,6 +206,69 @@ test("startDealAndNotify persists a new deal and sends the new deal event", asyn
   assert.equal((await store.getDeal("DL-START")).lastNotifiedAt, "2026-06-24T10:00:00.000Z");
 });
 
+test("startDealAndNotify mirrors outbound approval SMS to business-scoped docs", async () => {
+  const state = { deals: new Map(), phoneIndex: new Map(), businesses: new Map() };
+  const store = createMemoryDealStore({ state });
+  const smsService = {
+    async sendSms(input) {
+      return { ok: true, delivered: true, to: input.to, message: input.message };
+    }
+  };
+
+  await startDealAndNotify({
+    deal: {
+      dealId: "DL-BIZ-START",
+      ownerUid: "owner-1",
+      buyer: { name: "Buyer", phone: "+255712345678" },
+      seller: { name: "Seller", phone: "+255798765432" },
+      serviceDescription: "Freight",
+      amount: 500
+    },
+    store,
+    smsService,
+    now: () => new Date("2026-06-24T10:00:00.000Z")
+  });
+
+  const business = state.businesses.get("owner-1");
+  assert.equal(business.deals.get("DL-BIZ-START").status, "awaiting_sms_reply");
+  assert.equal(business.deals.get("DL-BIZ-START").approvalStatus, "sms_sent");
+  assert.equal(business.conversations.get("DL-BIZ-START").messages[0].direction, "outgoing");
+  assert.equal(business.notifications.size, 1);
+});
+
+test("processInboundSms mirrors incoming owner reply and classified approval", async () => {
+  const state = { deals: new Map(), phoneIndex: new Map(), businesses: new Map() };
+  const store = createMemoryDealStore({ state });
+  await store.saveDeal({
+    dealId: "DL-BIZ-IN",
+    ownerUid: "owner-1",
+    status: "initiated",
+    owner: { name: "Owner", phone: "+255798765432" },
+    buyer: { name: "Buyer", phone: "+255712345678" },
+    seller: { name: "Seller", phone: "+255700000000" },
+    serviceDescription: "Freight",
+    amount: 500
+  });
+
+  const result = await processInboundSms({
+    payload: { from: "+255798765432", text: "sawa fanya hiyo", linkId: "DL-BIZ-IN" },
+    store,
+    smsService: { async sendSms(input) { return { ok: true, delivered: true, to: input.to, message: input.message }; } },
+    now: () => new Date("2026-06-24T10:00:00.000Z")
+  });
+
+  const business = state.businesses.get("owner-1");
+  const deal = business.deals.get("DL-BIZ-IN");
+  const messages = business.conversations.get("DL-BIZ-IN").messages;
+  assert.equal(result.intent, "approve");
+  assert.equal(result.replierRole, DEAL_ROLE.OWNER);
+  assert.equal(deal.status, "approved");
+  assert.equal(deal.approvedAt, "2026-06-24T10:00:00.000Z");
+  assert.equal(messages[0].direction, "incoming");
+  assert.equal(messages[0].senderRole, "owner");
+  assert.equal(business.notifications.get([...business.notifications.keys()][0]).type, "sms_reply_approved");
+});
+
 test("startDealAndNotify sends founder admin summary when FOUNDER_PHONE is configured", async () => {
   const store = createMemoryDealStore({ state: { deals: new Map(), phoneIndex: new Map() } });
   const sent = [];

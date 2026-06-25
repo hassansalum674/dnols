@@ -186,6 +186,28 @@
         resize: vertical;
       }
 
+      input[type="checkbox"],
+      input[type="radio"] {
+        width: 16px;
+        height: 16px;
+        min-height: 0;
+        flex: none;
+        padding: 0;
+        margin: 0;
+        accent-color: var(--brand);
+        cursor: pointer;
+      }
+
+      label.consent {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      label.consent a {
+        color: var(--brand);
+      }
+
       input:focus,
       textarea:focus,
       select:focus {
@@ -751,9 +773,16 @@
               When you submit, we build the business agent profile, score readiness, and store it for review.
               Deal requests will still require human approval before execution.
             </p>
-            <label class="small">
+            <label class="small consent">
               <input name="capabilityAccuracyConfirmed" type="checkbox" value="true" required />
               I confirm these capabilities, service areas, delivery terms, pricing rules, and approval limits are accurate.
+            </label>
+            <label class="small consent">
+              <input name="termsPrivacyAccepted" type="checkbox" value="true" required />
+              I have read and agree to the
+              <a href="/terms" target="_blank" rel="noopener">Terms of Use</a>
+              and
+              <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
             </label>
           </div>
 
@@ -839,6 +868,14 @@
         event.preventDefault();
         listingStatus.innerHTML = `<p class="message ok">Building and checking your listing...</p>`;
         const rawPayload = Object.fromEntries(new FormData(listingForm).entries());
+        if (!listingForm.elements.namedItem("capabilityAccuracyConfirmed").checked) {
+          listingStatus.innerHTML = `<p class="message error">Confirm your capabilities, service areas, delivery terms, pricing rules, and approval limits are accurate before submitting.</p>`;
+          return;
+        }
+        if (!listingForm.elements.namedItem("termsPrivacyAccepted").checked) {
+          listingStatus.innerHTML = `<p class="message error">You must agree to the Terms of Use and Privacy Policy before submitting.</p>`;
+          return;
+        }
         const emailValidation = validateBusinessProfileEmails(rawPayload);
         if (!emailValidation.valid) {
           listingStatus.innerHTML = `<p class="message error">${escapeHtml(emailValidation.message)}</p>`;

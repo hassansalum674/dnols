@@ -5,7 +5,8 @@ const DEFAULT_PHONE_INDEX_COLLECTION = "dealPhoneIndex";
 
 const memoryState = {
   deals: new Map(),
-  phoneIndex: new Map()
+  phoneIndex: new Map(),
+  businesses: new Map()
 };
 
 export function createDealStore({ env = process.env, now = () => new Date() } = {}) {
@@ -42,11 +43,24 @@ export function createDealStore({ env = process.env, now = () => new Date() } = 
     async updateDeal(dealId, patch = {}) {
       firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
       return firestoreStore.updateDeal(dealId, patch);
+    },
+    async mirrorBusinessDeal(deal = {}, patch = {}) {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return firestoreStore.mirrorBusinessDeal(deal, patch);
+    },
+    async appendBusinessConversationMessage(input = {}) {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return firestoreStore.appendBusinessConversationMessage(input);
+    },
+    async createBusinessNotification(input = {}) {
+      firestoreStore ||= await createFirestoreDealStore(firestoreConfig, memory, now);
+      return firestoreStore.createBusinessNotification(input);
     }
   };
 }
 
-export function createMemoryDealStore({ state = { deals: new Map(), phoneIndex: new Map() }, now = () => new Date() } = {}) {
+export function createMemoryDealStore({ state = { deals: new Map(), phoneIndex: new Map(), businesses: new Map() }, now = () => new Date() } = {}) {
+  state.businesses ||= new Map();
   return {
     async saveDeal(deal = {}) {
       const normalized = normalizeDeal(deal, { now });
@@ -85,6 +99,65 @@ export function createMemoryDealStore({ state = { deals: new Map(), phoneIndex: 
       state.deals.set(id, updated);
       indexDealPhones(state.phoneIndex, updated);
       return clone(updated);
+    },
+    async mirrorBusinessDeal(deal = {}, patch = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...patch });
+      const dealId = clean(patch.dealId || deal.dealId || deal.id || deal.ref);
+      if (!businessId || !dealId) return null;
+      const business = ensureMemoryBusiness(state.businesses, businessId);
+      const existing = business.deals.get(dealId) || {};
+      const mirrored = {
+        ...existing,
+        ...deal,
+        ...patch,
+        businessId,
+        dealId,
+        id: dealId,
+        updatedAt: iso(now())
+      };
+      business.deals.set(dealId, pruneEmpty(mirrored));
+      return clone(business.deals.get(dealId));
+    },
+    async appendBusinessConversationMessage({ deal = {}, message = {}, conversationPatch = {} } = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...conversationPatch });
+      const dealId = clean(conversationPatch.dealId || deal.dealId || deal.id || deal.ref);
+      if (!businessId || !dealId) return null;
+      const business = ensureMemoryBusiness(state.businesses, businessId);
+      const existing = business.conversations.get(dealId) || { messages: [] };
+      const createdAt = clean(message.createdAt) || iso(now());
+      const entry = pruneEmpty({
+        id: message.id || `${createdAt}-${existing.messages.length}`,
+        ...message,
+        createdAt
+      });
+      const conversation = pruneEmpty({
+        ...existing,
+        ...conversationPatch,
+        businessId,
+        dealId,
+        id: dealId,
+        latestMessage: entry.body || entry.text || "",
+        latestMessageAt: createdAt,
+        updatedAt: iso(now()),
+        messages: [...(Array.isArray(existing.messages) ? existing.messages : []), entry].slice(-100)
+      });
+      business.conversations.set(dealId, conversation);
+      return clone(conversation);
+    },
+    async createBusinessNotification({ deal = {}, notification = {} } = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...notification });
+      if (!businessId) return null;
+      const business = ensureMemoryBusiness(state.businesses, businessId);
+      const id = notification.id || `${iso(now())}-${business.notifications.size}`;
+      const entry = pruneEmpty({
+        ...notification,
+        id,
+        businessId,
+        dealId: clean(notification.dealId || deal.dealId || deal.id || deal.ref),
+        createdAt: notification.createdAt || iso(now())
+      });
+      business.notifications.set(id, entry);
+      return clone(entry);
     }
   };
 }
@@ -192,6 +265,62 @@ async function createFirestoreDealStore(config, fallback, now) {
       await deals.doc(updated.dealId).set(updated, { merge: true });
       await writePhoneIndex(phoneIndex, updated);
       return updated;
+    },
+    async mirrorBusinessDeal(deal = {}, patch = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...patch });
+      const dealId = clean(patch.dealId || deal.dealId || deal.id || deal.ref);
+      if (!businessId || !dealId) return null;
+      const mirrored = pruneEmpty({
+        ...deal,
+        ...patch,
+        businessId,
+        dealId,
+        id: dealId,
+        updatedAt: iso(now())
+      });
+      await db.collection("businesses").doc(businessId).collection("deals").doc(dealId).set(mirrored, { merge: true });
+      return mirrored;
+    },
+    async appendBusinessConversationMessage({ deal = {}, message = {}, conversationPatch = {} } = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...conversationPatch });
+      const dealId = clean(conversationPatch.dealId || deal.dealId || deal.id || deal.ref);
+      if (!businessId || !dealId) return null;
+      const conversationRef = db.collection("businesses").doc(businessId).collection("conversations").doc(dealId);
+      const snapshot = await conversationRef.get();
+      const existing = snapshot.exists ? snapshot.data() : {};
+      const createdAt = clean(message.createdAt) || iso(now());
+      const entry = pruneEmpty({
+        id: message.id || `${createdAt}-${Array.isArray(existing.messages) ? existing.messages.length : 0}`,
+        ...message,
+        createdAt
+      });
+      const messages = [...(Array.isArray(existing.messages) ? existing.messages : []), entry].slice(-100);
+      const conversation = pruneEmpty({
+        ...conversationPatch,
+        businessId,
+        dealId,
+        id: dealId,
+        latestMessage: entry.body || entry.text || "",
+        latestMessageAt: createdAt,
+        updatedAt: iso(now()),
+        messages
+      });
+      await conversationRef.set(conversation, { merge: true });
+      return conversation;
+    },
+    async createBusinessNotification({ deal = {}, notification = {} } = {}) {
+      const businessId = resolveBusinessId({ ...deal, ...notification });
+      if (!businessId) return null;
+      const ref = db.collection("businesses").doc(businessId).collection("notifications").doc();
+      const entry = pruneEmpty({
+        ...notification,
+        id: ref.id,
+        businessId,
+        dealId: clean(notification.dealId || deal.dealId || deal.id || deal.ref),
+        createdAt: notification.createdAt || iso(now())
+      });
+      await ref.set(entry, { merge: true });
+      return entry;
     }
   };
 }
@@ -234,6 +363,24 @@ export function normalizePhone(value) {
   return result.valid ? result.phone : clean(value);
 }
 
+export function resolveBusinessId(deal = {}) {
+  return clean(
+    deal.businessId ||
+    deal.ownerUid ||
+    deal.ownerId ||
+    deal.uid ||
+    deal.profileId ||
+    deal.owner?.uid ||
+    deal.owner?.id ||
+    deal.business?.id ||
+    deal.seller?.ownerUid ||
+    deal.seller?.businessId ||
+    deal.sellerBusinessId ||
+    deal.sellerId ||
+    slugify(deal.businessSlug || deal.businessName || deal.sellerName || deal.ownerName)
+  );
+}
+
 function isActiveDeal(deal = {}) {
   return !["complete", "rejected", "disputed", "escalated"].includes(clean(deal.status));
 }
@@ -255,6 +402,17 @@ function pruneEmpty(value) {
   }));
 }
 
+function ensureMemoryBusiness(businesses, businessId) {
+  if (!businesses.has(businessId)) {
+    businesses.set(businessId, {
+      deals: new Map(),
+      conversations: new Map(),
+      notifications: new Map()
+    });
+  }
+  return businesses.get(businessId);
+}
+
 function clone(value) {
   return value ? JSON.parse(JSON.stringify(value)) : value;
 }
@@ -265,4 +423,12 @@ function iso(value) {
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function slugify(value) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }

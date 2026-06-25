@@ -30,6 +30,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /businesses/{businessId} {
+      allow read: if isOwner(businessId);
+      allow write: if false;
+
+      match /deals/{dealId} {
+        allow read: if canReadBusinessScopedDoc(businessId);
+        allow write: if false;
+      }
+
+      match /conversations/{conversationId} {
+        allow read: if canReadBusinessScopedDoc(businessId);
+        allow write: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if canReadBusinessScopedDoc(businessId);
+        allow write: if false;
+      }
+    }
+
     match /businessAccounts/{ownerUid} {
       allow read: if isOwner(ownerUid);
       allow create: if isOwner(ownerUid)
@@ -110,6 +130,15 @@ service cloud.firestore {
 
     function isOwner(ownerUid) {
       return request.auth != null && request.auth.uid == ownerUid;
+    }
+
+    function canReadBusinessScopedDoc(businessId) {
+      return request.auth != null
+        && (
+          request.auth.uid == businessId
+          || resource.data.ownerUid == request.auth.uid
+          || resource.data.businessId == request.auth.uid
+        );
     }
 
     function isValidSubmission() {

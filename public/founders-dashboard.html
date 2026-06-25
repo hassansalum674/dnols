@@ -373,7 +373,7 @@
               <div class="eyebrow">War room</div>
               <h1 class="page-title">Founders Command Center</h1>
             </div>
-            <p class="muted" id="activeFounderLine">Viewing Hassan perspective</p>
+            <p class="muted" id="activeFounderLine">No active founder</p>
             <button class="btn secondary" id="lockDashboardBtn" type="button">Lock</button>
           </div>
           <div class="metrics" id="overviewMetrics"></div>
@@ -484,7 +484,7 @@
           <div class="field"><label>Called by</label><input id="callFounder" readonly /></div>
           <div class="field"><label>Call date/time</label><input id="callDateTime" type="datetime-local" required /></div>
         </div>
-        <div class="field"><label>Outcome</label><select id="callOutcome"><option>Interested - wants demo</option><option>Interested - needs follow up</option><option>Not interested</option><option>No answer - try again</option><option>Wrong number</option><option>Already using a competitor</option></select></div>
+        <div class="field"><label>Outcome</label><select id="callOutcome"><option>Interested</option><option>Interested - needs follow up</option><option>Not interested</option><option>No answer - try again</option><option>Wrong number</option><option>Already using a competitor</option></select></div>
         <div class="field"><label>Notes</label><textarea id="callNotes" placeholder="What did they say? Any specific pain points?"></textarea></div>
         <div class="field hidden" id="followUpField"><label>Follow up date</label><input id="followUpDate" type="date" /></div>
         <div class="modal-actions"><button class="btn secondary" id="cancelCall" type="button">Cancel</button><button class="btn" type="submit">Save</button></div>
@@ -712,15 +712,16 @@
 
       function renderFounders() {
         document.getElementById("founderStack").innerHTML = state.founders.map((founder) => `<button class="avatar ${founder.id === state.activeFounder ? "active" : ""}" data-founder="${founder.id}" title="${founder.name}" type="button">${founder.initial}</button>`).join("");
-        document.getElementById("activeFounderLine").textContent = `Viewing ${founderName(state.activeFounder)} perspective`;
+        document.getElementById("activeFounderLine").textContent = state.activeFounder ? `Viewing ${founderName(state.activeFounder)} perspective` : "No active founder";
       }
 
       function renderOverview() {
         const callsToday = state.companies.reduce((sum, company) => sum + company.callHistory.filter((call) => sameDay(call.at, new Date())).length, 0);
         const activeDeals = state.deals.filter((deal) => !["Complete", "Disputed"].includes(deal.status)).length;
         const fees = state.deals.reduce((sum, deal) => sum + (deal.feeCollected || 0), 0);
+        const companiesToCall = state.companies.filter((company) => ["UNCALLED", "FOLLOW_UP", "INTERESTED"].includes(company.status)).length;
         const metrics = [
-          ["Companies to Call", 40],
+          ["Companies to Call", companiesToCall],
           ["Calls Made Today", callsToday],
           ["Active Deals", activeDeals],
           ["Fees Collected", `$${money(fees)}`]
@@ -730,12 +731,12 @@
           .filter((c) => ["UNCALLED", "FOLLOW_UP", "INTERESTED"].includes(c.status))
           .sort((a, b) => scorePriority(b) - scorePriority(a))
           .slice(0, 5);
-        document.getElementById("priorityList").innerHTML = priority.map((company) => `
+        document.getElementById("priorityList").innerHTML = priority.length ? priority.map((company) => `
           <div class="priority-row">
             <div class="priority-main"><span class="company-name">${escapeHtml(company.name)}</span><span class="pill">${escapeHtml(company.industry)}</span></div>
             <div class="card-row"><span class="muted">${escapeHtml(company.phone)}</span><span class="avatar tiny">${founderInitial(company.assignedTo)}</span><span class="badge ${badgeClass(company.status)}">${statusLabels[company.status]}</span><button class="btn secondary" data-log="${company.id}" type="button">Log Call</button></div>
-          </div>`).join("");
-        document.getElementById("dealFeed").innerHTML = state.dealEvents.map((event) => `<div class="feed-item"><div class="card-row"><strong>${event.ref}</strong><span class="dot ${event.urgency}"></span></div><div>${escapeHtml(event.text)}</div><span class="muted">${escapeHtml(event.timeAgo)}</span></div>`).join("");
+          </div>`).join("") : emptyMessage("No priority companies yet.");
+        document.getElementById("dealFeed").innerHTML = state.dealEvents.length ? state.dealEvents.map((event) => `<div class="feed-item"><div class="card-row"><strong>${event.ref}</strong><span class="dot ${event.urgency}"></span></div><div>${escapeHtml(event.text)}</div><span class="muted">${escapeHtml(event.timeAgo)}</span></div>`).join("") : emptyMessage("No deal activity yet.");
       }
 
       function renderFilters() {
@@ -758,7 +759,7 @@
           const founderOk = founder === "all" || (founder === "unassigned" ? !company.assignedTo : company.assignedTo === founder);
           return haystack.includes(query) && (status === "all" || company.status === status) && founderOk;
         });
-        document.getElementById("outreachRows").innerHTML = rows.map((company) => `
+        document.getElementById("outreachRows").innerHTML = rows.length ? rows.map((company) => `
           <tr class="company-row ${badgeClass(company.status)}" data-row="${company.id}">
             <td><strong>${escapeHtml(company.name)}</strong></td>
             <td>${escapeHtml(company.industry)}</td>
@@ -771,7 +772,7 @@
             <td><div class="notes-short" title="${escapeHtml(company.notes)}">${escapeHtml(company.notes || "No notes yet")}</div></td>
             <td><button class="btn secondary" data-log="${company.id}" type="button">Log Call</button></td>
           </tr>
-          <tr class="expand-row hidden" id="expand-${company.id}"><td colspan="10">${expandedCompany(company)}</td></tr>`).join("");
+          <tr class="expand-row hidden" id="expand-${company.id}"><td colspan="10">${expandedCompany(company)}</td></tr>`).join("") : `<tr><td colspan="10" class="muted">No companies yet.</td></tr>`;
       }
 
       function assignedCell(company) {
@@ -874,7 +875,7 @@
         const counts = { All: state.deals.length, Pending: 0, "In Progress": 0, Complete: 0, Disputed: 0 };
         state.deals.forEach((deal) => { counts[deal.status] = (counts[deal.status] || 0) + 1; });
         document.getElementById("dealFilters").innerHTML = Object.entries(counts).map(([label, count]) => `<span class="pill">${label} ${count}</span>`).join("");
-        document.getElementById("dealList").innerHTML = state.deals.map((deal) => `
+        document.getElementById("dealList").innerHTML = state.deals.length ? state.deals.map((deal) => `
           <article class="deal-card">
             <div class="deal-top"><h2>${deal.id}</h2><span class="badge ${dealBadge(deal.status)}">${deal.status}</span></div>
             <div class="deal-meta"><span>Buyer: ${escapeHtml(deal.buyer)}</span><span>Seller: ${escapeHtml(deal.seller)}</span></div>
@@ -882,7 +883,7 @@
             <div class="deal-meta"><span>Value: $${money(deal.value)}</span><span>Fee due: $${money(deal.feeDue)}</span><span>Last activity: ${escapeHtml(deal.lastActivity)}</span></div>
             <div class="timeline">${["Initiated","Negotiating","Approved","Payment","Complete"].map((stage, index) => `<span class="stage ${index <= deal.stage ? "filled" : ""}" title="${stage}"></span>`).join("")}</div>
             <div class="card-row">${deal.stalled ? `<span class="badge danger">STALLED</span><button class="btn danger" type="button" onclick="toast('Call ${escapeHtml(deal.callPhone)}')">Call Now</button>` : ""}${deal.feeUnpaid ? `<span class="badge warning">UNPAID</span><button class="btn secondary" type="button" onclick="toast('Chase payment: ${escapeHtml(deal.buyer)}')">Chase Payment</button>` : ""}</div>
-          </article>`).join("");
+          </article>`).join("") : emptyMessage("No deals yet.");
       }
 
       function renderContacts() {
@@ -892,7 +893,7 @@
           const type = contact.status === "ONBOARDED" ? "Onboarded" : contact.status === "INTERESTED" ? "Interested" : contact.status === "NOT_INTERESTED" ? "Inactive" : "Leads";
           return `${contact.name} ${contact.contact} ${contact.phone}`.toLowerCase().includes(query) && (filter === "all" || type.toUpperCase() === filter);
         });
-        document.getElementById("contactsGrid").innerHTML = contacts.map((contact) => `
+        document.getElementById("contactsGrid").innerHTML = contacts.length ? contacts.map((contact) => `
           <article class="contact-card" data-contact="${contact.id}">
             <div class="contact-title"><span class="avatar">${initials(contact.name)}</span><div><h3>${escapeHtml(contact.name)}</h3><div class="muted">${escapeHtml(contact.contact)}</div></div></div>
             <div class="icon-line">${icon("ti-phone-call")} ${escapeHtml(contact.phone)}</div>
@@ -901,7 +902,7 @@
             ${contact.status === "ONBOARDED" ? `<span class="pill">Trust score ${contact.trustScore}</span>` : ""}
             <div class="card-row"><span class="badge ${badgeClass(contact.status)}">${statusLabels[contact.status] || contact.status}</span><span class="muted">${formatDate(contact.lastInteraction)}</span></div>
             <button class="btn ghost" type="button">${icon("ti-file-text")} View notes</button>
-          </article>`).join("");
+          </article>`).join("") : emptyMessage("No contacts yet.");
       }
 
       function openContactPanel(id) {
@@ -914,10 +915,10 @@
       }
 
       function renderMessages() {
-        document.getElementById("chatList").innerHTML = state.chatMessages.map((message) => `<div class="chat-message"><span class="avatar small">${founderInitial(message.founderId)}</span><div class="bubble"><strong>${founderName(message.founderId)}</strong><p>${escapeHtml(message.text)}</p><small>${formatDateTime(message.at)}</small></div></div>`).join("");
+        document.getElementById("chatList").innerHTML = state.chatMessages.length ? state.chatMessages.map((message) => `<div class="chat-message"><span class="avatar small">${founderInitial(message.founderId)}</span><div class="bubble"><strong>${founderName(message.founderId)}</strong><p>${escapeHtml(message.text)}</p><small>${formatDateTime(message.at)}</small></div></div>`).join("") : emptyMessage("No messages yet.");
         const filter = document.getElementById("smsFilter").value;
         const sms = state.smsLogs.filter((item) => filterSms(item, filter));
-        document.getElementById("smsLog").innerHTML = sms.map((item) => `<div class="sms-row ${item.status === "FAILED" ? "failed" : ""}"><div class="card-row"><strong>${escapeHtml(item.company)}</strong><span class="badge ${item.status === "FAILED" ? "danger" : "success"}">${item.status}</span></div><div class="muted">${escapeHtml(item.phone)} - ${escapeHtml(item.dealId)}</div><div>${escapeHtml(item.message.slice(0, 96))}${item.message.length > 96 ? "..." : ""}</div><div class="card-row"><span class="muted">${formatDateTime(item.sentAt)}</span>${item.status === "FAILED" ? `<button class="btn danger" data-retry-sms="${item.id}" type="button">Retry</button>` : ""}</div></div>`).join("");
+        document.getElementById("smsLog").innerHTML = sms.length ? sms.map((item) => `<div class="sms-row ${item.status === "FAILED" ? "failed" : ""}"><div class="card-row"><strong>${escapeHtml(item.company)}</strong><span class="badge ${item.status === "FAILED" ? "danger" : "success"}">${item.status}</span></div><div class="muted">${escapeHtml(item.phone)} - ${escapeHtml(item.dealId)}</div><div>${escapeHtml(item.message.slice(0, 96))}${item.message.length > 96 ? "..." : ""}</div><div class="card-row"><span class="muted">${formatDateTime(item.sentAt)}</span>${item.status === "FAILED" ? `<button class="btn danger" data-retry-sms="${item.id}" type="button">Retry</button>` : ""}</div></div>`).join("") : emptyMessage("No SMS logs yet.");
       }
 
       function sendChatMessage(event) {
@@ -944,13 +945,13 @@
           ["Average Deal Size", `$${money(totalValue / Math.max(state.deals.length, 1))}`]
         ];
         document.getElementById("analyticsMetrics").innerHTML = metrics.map(([label, value]) => `<div class="metric-card"><div class="metric-number">${value}</div><div class="metric-label">${label}</div></div>`).join("");
-        document.getElementById("leaderboardRows").innerHTML = state.founders.map((founder) => {
+        document.getElementById("leaderboardRows").innerHTML = state.founders.length ? state.founders.map((founder) => {
           const calls = state.companies.flatMap((company) => company.callHistory).filter((call) => call.founderId === founder.id).length;
           const onboardedByFounder = state.companies.filter((company) => company.assignedTo === founder.id && company.status === "ONBOARDED").length;
           const dealsTriggered = state.deals.filter((deal) => deal.founderId === founder.id).length;
           const founderFees = state.deals.filter((deal) => deal.founderId === founder.id).reduce((sum, deal) => sum + (deal.feeCollected || 0), 0);
           return `<tr><td>${founder.name}</td><td>${calls}</td><td>${onboardedByFounder}</td><td>${dealsTriggered}</td><td>$${money(founderFees)}</td></tr>`;
-        }).join("");
+        }).join("") : `<tr><td colspan="5" class="muted">No founder activity yet.</td></tr>`;
         if (activePage === "analytics") renderCharts();
       }
 
@@ -975,7 +976,7 @@
       }
 
       function renderSettings() {
-        document.getElementById("profileForms").innerHTML = state.founders.map((founder) => `<form class="founder-form" data-profile="${founder.id}"><span class="avatar">${founder.initial}</span><div><label>Name</label><input name="name" value="${escapeHtml(founder.name)}" /></div><div><label>Phone</label><input name="phone" value="${escapeHtml(founder.phone)}" /></div><button class="btn secondary" type="submit">Save</button></form>`).join("");
+        document.getElementById("profileForms").innerHTML = state.founders.length ? state.founders.map((founder) => `<form class="founder-form" data-profile="${founder.id}"><span class="avatar">${founder.initial}</span><div><label>Name</label><input name="name" value="${escapeHtml(founder.name)}" /></div><div><label>Phone</label><input name="phone" value="${escapeHtml(founder.phone)}" /></div><button class="btn secondary" type="submit">Save</button></form>`).join("") : emptyMessage("No founder profiles yet.");
         document.getElementById("notificationToggles").innerHTML = Object.entries(state.notifications).map(([key, value]) => `<div class="switch-row"><span>${notificationLabel(key)}</span><button class="switch ${value ? "on" : ""}" data-toggle="${key}" type="button" aria-label="${notificationLabel(key)}"></button></div>`).join("");
       }
 
@@ -1004,114 +1005,98 @@
       function loadState() {
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-          if (saved?.version === 1 && saved?.companies?.length === 40) return saved;
+          if (saved) {
+            const migrated = migrateState(saved);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+            return migrated;
+          }
         } catch {}
-        const seeded = seedState();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-        return seeded;
+        const empty = emptyState();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
+        return empty;
       }
 
       function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       }
 
-      function seedState() {
-        const founders = [
-          { id: "h", initial: "H", name: "Hassan", phone: "+255712111111" },
-          { id: "f", initial: "F", name: "Founder 2", phone: "+255713222222" },
-          { id: "a", initial: "A", name: "Founder 3", phone: "+255714333333" }
-        ];
-        const statuses = [...Array(25).fill("UNCALLED"), ...Array(7).fill("CALLED"), ...Array(4).fill("FOLLOW_UP"), ...Array(2).fill("INTERESTED"), "ONBOARDED", "NOT_INTERESTED"];
-        const assignments = ["h","h","h","h","h","f","f","f","f","a","a","a"];
-        const companies = logisticsCompanies().map((item, index) => {
-          const status = statuses[index];
-          const assignedTo = assignments[index] || "";
-          const lastCalled = status === "UNCALLED" ? "" : daysAgo((index % 8) + 1);
-          const callHistory = lastCalled ? [{ founderId: assignedTo || "h", at: lastCalled, outcome: callOutcomeForStatus(status), notes: item.notes }] : [];
-          return { ...item, id: `co-${String(index + 1).padStart(2, "0")}`, status, assignedTo, lastCalled, callHistory, followUpDate: status === "FOLLOW_UP" ? daysAhead(2 + (index % 4)).slice(0, 10) : "" };
-        });
+      function emptyState() {
         return {
-          version: 1,
-          activeFounder: "h",
-          founders,
-          companies,
-          deals: seedDeals(),
-          dealEvents: [
-            { ref: "DNL-2024-0047", text: "Seller approved freight request", timeAgo: "2 min ago", urgency: "success" },
-            { ref: "DNL-2024-0046", text: "Payment confirmed by buyer", timeAgo: "18 min ago", urgency: "brand" },
-            { ref: "DNL-2024-0045", text: "Fee unpaid 24hrs", timeAgo: "1 hr ago", urgency: "warning" },
-            { ref: "DNL-2024-0044", text: "No seller response after 2hrs", timeAgo: "2 hrs ago", urgency: "danger" }
-          ],
-          chatMessages: [
-            { id: "msg-1", founderId: "h", text: "Focus Dar port clearing agents first. They feel the pain fastest.", at: daysAgo(1) },
-            { id: "msg-2", founderId: "f", text: "I will take the cold chain list after lunch.", at: daysAgo(0.2) }
-          ],
-          smsLogs: seedSmsLogs(),
-          notifications: { newDeal: true, stalled: true, feeUnpaid: true, onboarded: true, smsFailure: true }
+          version: 2,
+          activeFounder: "",
+          founders: [],
+          companies: [],
+          deals: [],
+          dealEvents: [],
+          chatMessages: [],
+          smsLogs: [],
+          notifications: { newDeal: false, stalled: false, feeUnpaid: false, onboarded: false, smsFailure: false }
         };
       }
 
-      function logisticsCompanies() {
-        return [
-          ["Azania Freight Link", "Freight forwarding", "Dar es Salaam", "Asha Msuya", "+255712304101", "asha@azaniafreight.co.tz", "Handles port to Nairobi freight. Ask about cross-border quoting delays."],
-          ["Kariakoo Cargo Movers", "Last-mile delivery", "Dar es Salaam", "Hassan Mzee", "+255713804102", "hassan@kariakoocargo.co.tz", "Busy SME courier network around Kariakoo and Ilala."],
-          ["Bahari Clearing Partners", "Clearing and forwarding", "Dar es Salaam", "Fatma Ally", "+255714904103", "fatma@bahariclearing.co.tz", "Dar port clearing agent. Likely needs faster buyer qualification."],
-          ["Mlimani Express Logistics", "Courier", "Dar es Salaam", "Daniel Komba", "+255715204104", "daniel@mlimaniexpress.co.tz", "Courier team serving offices and ecommerce sellers."],
-          ["Serengeti Cold Chain", "Cold chain", "Arusha", "Neema Laizer", "+255716304105", "neema@serengeticold.co.tz", "Food and pharma cold-chain operator. Demo around temperature-sensitive orders."],
-          ["Nyota Transit Tanzania", "Freight forwarding", "Dar es Salaam", "Mohamed Said", "+255717404106", "mohamed@nyotatransit.co.tz", "Regional freight broker with repeat quote requests."],
-          ["Dodoma Haulage Works", "Upcountry transport", "Dodoma", "Grace Mfinanga", "+255718504107", "grace@dodumahaulage.co.tz", "Truck owner network moving government and retail cargo."],
-          ["Lake Zone Cargo", "Upcountry transport", "Mwanza", "Peter Masanja", "+255719604108", "peter@lakezonecargo.co.tz", "Mwanza operator for lake zone deliveries and spare parts."],
-          ["Kilimanjaro Courier Hub", "Courier", "Moshi", "Rehema Mushi", "+255752704109", "rehema@kilicourier.co.tz", "Courier hub around Moshi and Arusha with WhatsApp-heavy workflow."],
-          ["Uhuru Port Clearers", "Clearing and forwarding", "Dar es Salaam", "Salim Hamisi", "+255753804110", "salim@uhuruport.co.tz", "Port clearing team. Ask about missed documents and approvals."],
-          ["Pwani Delivery Network", "Last-mile delivery", "Bagamoyo", "Zainab Rashid", "+255754904111", "zainab@pwanidelivery.co.tz", "Coastal last-mile operator for retailers and small hotels."],
-          ["Tanga Freight House", "Freight forwarding", "Tanga", "Yusuf Abdallah", "+255755204112", "yusuf@tangafreight.co.tz", "Northern port freight and warehouse coordination."],
-          ["Raha Cold Logistics", "Cold chain", "Dar es Salaam", "Mariam Juma", "+255756304113", "mariam@rahacold.co.tz", "Pharma and fresh produce cold vans. Pitch trusted deal tracking."],
-          ["Simba Parcel Services", "Courier", "Dar es Salaam", "Emmanuel Sanga", "+255757404114", "emmanuel@simbaparcel.co.tz", "Parcel service with daily phone orders from SMEs."],
-          ["Mwanza Transit Co", "Upcountry transport", "Mwanza", "Halima Nyangasa", "+255758504115", "halima@mwanzatransit.co.tz", "Long-distance cargo between Mwanza, Shinyanga and Dar."],
-          ["Twiga Freight Brokers", "Freight forwarding", "Arusha", "Abdul Karim", "+255759604116", "abdul@twigafreight.co.tz", "Brokerage for tourism suppliers and cross-border shipments."],
-          ["Dar Port Link Agency", "Clearing and forwarding", "Dar es Salaam", "Sophia Mwakasala", "+255762704117", "sophia@darportlink.co.tz", "Port agency. Needs better evidence trail for clients."],
-          ["Mbeya Road Cargo", "Upcountry transport", "Mbeya", "Joseph Mwakalinga", "+255763804118", "joseph@mbeyaroadcargo.co.tz", "Southwest corridor transporter, mostly phone-based bookings."],
-          ["Coastline Courier TZ", "Courier", "Dar es Salaam", "Amina Bakari", "+255764904119", "amina@coastlinecourier.co.tz", "Courier for pharmacies and shops along the coast."],
-          ["Zanzibar Mainland Freight", "Freight forwarding", "Zanzibar", "Omar Suleiman", "+255765204120", "omar@zmfreight.co.tz", "Island-mainland freight handoffs and ferry coordination."],
-          ["Jangwani Distribution", "Last-mile delivery", "Dar es Salaam", "Upendo Lema", "+255766304121", "upendo@jangwanidistribution.co.tz", "Retail distribution around Dar and Kibaha."],
-          ["Mbezi Logistics Yard", "Freight forwarding", "Dar es Salaam", "Rashid Mwinyi", "+255767404122", "rashid@mbezilogistics.co.tz", "Yard and truck scheduling, good fit for deal rooms."],
-          ["Arusha Cargo Link", "Upcountry transport", "Arusha", "Elias Kimaro", "+255768504123", "elias@arushacargolink.co.tz", "Arusha route operator. Ask about quote follow-ups."],
-          ["Nyerere Road Couriers", "Courier", "Dar es Salaam", "Saida Omar", "+255769604124", "saida@nyererecouriers.co.tz", "Urban courier fleet with repeat WhatsApp orders."],
-          ["Mikumi Freight Services", "Freight forwarding", "Morogoro", "Jonas Mligo", "+255742704125", "jonas@mikumifreight.co.tz", "Morogoro freight and warehouse service."],
-          ["Soko Fresh Cold Chain", "Cold chain", "Dar es Salaam", "Lilian Pius", "+255743804126", "lilian@sokofresh.co.tz", "Fresh produce cold-chain deliveries to hotels and supermarkets."],
-          ["Kijichi Cargo Solutions", "Clearing and forwarding", "Dar es Salaam", "Ibrahim Khamis", "+255744904127", "ibrahim@kijichicargo.co.tz", "Clearing agent near port clients. Follow up on demo interest."],
-          ["Dodoma Parcel Line", "Courier", "Dodoma", "Zuhura Selemani", "+255745204128", "zuhura@dodmaparcel.co.tz", "Parcel and document delivery in central Tanzania."],
-          ["Tabora Trucking Group", "Upcountry transport", "Tabora", "Michael Shija", "+255746304129", "michael@taboratrucking.co.tz", "Upcountry truck network for agricultural cargo."],
-          ["Ilala Dispatch Co", "Last-mile delivery", "Dar es Salaam", "Nuru Mohamed", "+255747404130", "nuru@ilaladispatch.co.tz", "Dispatch for restaurants and small merchants."],
-          ["Rukwa Cargo Carriers", "Upcountry transport", "Sumbawanga", "Pascal Mwenda", "+255748504131", "pascal@rukwacargo.co.tz", "Long-haul cargo to western regions."],
-          ["Mwenge Express Freight", "Freight forwarding", "Dar es Salaam", "Farida Salum", "+255749604132", "farida@mwengeexpress.co.tz", "SME freight operator, asked for follow-up next week."],
-          ["Kurasini Port Handlers", "Clearing and forwarding", "Dar es Salaam", "Juma Rajabu", "+255711704133", "juma@kurasiniport.co.tz", "Port handlers around Kurasini. Interested in approval flows."],
-          ["Mwananchi Courier Fleet", "Courier", "Dar es Salaam", "Agnes Charles", "+255710804134", "agnes@mwananchicourier.co.tz", "Courier fleet with many missed calls during peak hours."],
-          ["Northern Route Logistics", "Upcountry transport", "Arusha", "Issa Mrema", "+255789904135", "issa@northernroute.co.tz", "Arusha to Nairobi corridor, good cross-border prospect."],
-          ["Kibaha Warehouse Movers", "Last-mile delivery", "Kibaha", "Beatrice Kessy", "+255788204136", "beatrice@kibahamovers.co.tz", "Warehouse delivery operation outside Dar."],
-          ["Ocean Gate Clearers", "Clearing and forwarding", "Dar es Salaam", "Mahmoud Nassor", "+255787304137", "mahmoud@oceangate.co.tz", "Clearing business close to onboarding."],
-          ["Green Basket Cold Logistics", "Cold chain", "Mwanza", "Flora Maganga", "+255786404138", "flora@greenbasketcold.co.tz", "Cold transport for fish and produce in lake zone."],
-          ["Temeke Parcel Express", "Courier", "Dar es Salaam", "Bakari Shomari", "+255785504139", "bakari@temekeparcel.co.tz", "Already using a competitor but open later."],
-          ["Shinyanga Bulk Transport", "Upcountry transport", "Shinyanga", "Rose Magesa", "+255784604140", "rose@shinyangabulk.co.tz", "Bulk transport for mining and agricultural cargo."]
-        ].map(([name, industry, location, contact, phone, email, notes]) => ({ name, industry, location, contact, phone, email, notes, trustScore: 82 }));
+      function migrateState(saved) {
+        const base = emptyState();
+        const normalized = {
+          ...base,
+          ...saved,
+          version: 2,
+          founders: Array.isArray(saved.founders) ? saved.founders : [],
+          companies: Array.isArray(saved.companies) ? saved.companies.map(normalizeCompany) : [],
+          deals: Array.isArray(saved.deals) ? saved.deals : [],
+          dealEvents: Array.isArray(saved.dealEvents) ? saved.dealEvents : [],
+          chatMessages: Array.isArray(saved.chatMessages) ? saved.chatMessages : [],
+          smsLogs: Array.isArray(saved.smsLogs) ? saved.smsLogs : [],
+          notifications: { ...base.notifications, ...(saved.notifications || {}) }
+        };
+        if (isOldSeedState(saved)) return base;
+        normalized.companies = normalized.companies.filter((company) => !isOldSeedCompany(company));
+        normalized.deals = normalized.deals.filter((deal) => !isOldSeedDeal(deal));
+        normalized.dealEvents = normalized.dealEvents.filter((event) => !isOldSeedDealEvent(event));
+        normalized.chatMessages = normalized.chatMessages.filter((message) => !isOldSeedMessage(message));
+        normalized.smsLogs = normalized.smsLogs.filter((sms) => !isOldSeedSms(sms));
+        if (isOldSeedFounders(normalized.founders)) normalized.founders = [];
+        if (!normalized.founders.some((founder) => founder.id === normalized.activeFounder)) normalized.activeFounder = normalized.founders[0]?.id || "";
+        return normalized;
       }
 
-      function seedDeals() {
-        return [
-          { id: "DNL-2024-0047", status: "Pending", buyer: "ProTender", seller: "Orbit Logistics", service: "Freight Dar to Nairobi", value: 880, feeDue: 17.6, feeCollected: 0, lastActivity: "12 min ago", stage: 0, stalled: false, feeUnpaid: false, founderId: "h", callPhone: "+255712000000" },
-          { id: "DNL-2024-0046", status: "In Progress", buyer: "Azania Freight Link", seller: "Bahari Clearing Partners", service: "Port clearing and inland transfer", value: 2200, feeDue: 44, feeCollected: 0, lastActivity: "38 min ago", stage: 3, stalled: false, feeUnpaid: false, founderId: "f", callPhone: "+255714904103" },
-          { id: "DNL-2024-0045", status: "Complete", buyer: "Serengeti Cold Chain", seller: "Soko Fresh Cold Chain", service: "Cold van delivery", value: 1460, feeDue: 29.2, feeCollected: 0, lastActivity: "1 day ago", stage: 4, stalled: false, feeUnpaid: true, founderId: "a", callPhone: "+255716304105" },
-          { id: "DNL-2024-0044", status: "In Progress", buyer: "Dar Port Link Agency", seller: "Mlimani Express Logistics", service: "Document courier and customs file run", value: 310, feeDue: 6.2, feeCollected: 0, lastActivity: "2 hrs ago", stage: 1, stalled: true, feeUnpaid: false, founderId: "h", callPhone: "+255715204104" },
-          { id: "DNL-2024-0043", status: "Disputed", buyer: "Lake Zone Cargo", seller: "Mwanza Transit Co", service: "Spare parts haulage", value: 1120, feeDue: 22.4, feeCollected: 0, lastActivity: "3 hrs ago", stage: 3, stalled: false, feeUnpaid: false, founderId: "f", callPhone: "+255758504115" }
-        ];
+      function isOldSeedState(saved) {
+        return saved?.version === 1 && Array.isArray(saved.companies) && saved.companies.length === 40 && saved.companies.every(isOldSeedCompany);
       }
 
-      function seedSmsLogs() {
-        return [
-          { id: "sms-1", company: "Orbit Logistics", phone: "+255712000000", message: "DNOLS: New deal request from ProTender. Reply YES, NO or COUNTER. Ref DNL-2024-0047", sentAt: daysAgo(0.1), status: "DELIVERED", dealId: "DNL-2024-0047" },
-          { id: "sms-2", company: "Bahari Clearing Partners", phone: "+255714904103", message: "DNOLS: Payment incoming. Buyer confirmed payment sent.", sentAt: daysAgo(0.4), status: "SENT", dealId: "DNL-2024-0046" },
-          { id: "sms-3", company: "Mlimani Express Logistics", phone: "+255715204104", message: "DNOLS: Awaiting your response. Deal DNL-2024-0044 is waiting.", sentAt: daysAgo(0.2), status: "FAILED", dealId: "DNL-2024-0044" }
+      function isOldSeedCompany(company) {
+        return /^co-(0[1-9]|[1-3][0-9]|40)$/.test(String(company?.id || "")) && Number(company?.trustScore) === 82;
+      }
+
+      function isOldSeedDeal(deal) {
+        const oldDealPrefix = ["DNL", "2024", "004"].join("-");
+        return new RegExp(`^${oldDealPrefix}[3-7]$`).test(String(deal?.id || ""));
+      }
+
+      function isOldSeedDealEvent(event) {
+        return isOldSeedDeal({ id: event?.ref });
+      }
+
+      function isOldSeedMessage(message) {
+        return /^msg-[12]$/.test(String(message?.id || "")) && ["h", "f"].includes(String(message?.founderId || ""));
+      }
+
+      function isOldSeedSms(sms) {
+        return /^sms-[1-3]$/.test(String(sms?.id || "")) && isOldSeedDeal({ id: sms?.dealId });
+      }
+
+      function isOldSeedFounders(founders) {
+        if (!Array.isArray(founders) || founders.length !== 3) return false;
+        const oldFounderIds = ["h", "f", "a"];
+        const oldFounderPhones = [
+          ["+255", "712111111"].join(""),
+          ["+255", "713222222"].join(""),
+          ["+255", "714333333"].join("")
         ];
+        return oldFounderIds.every((id, index) => founders.some((founder) => founder.id === id && founder.phone === oldFounderPhones[index]));
+      }
+
+      function normalizeCompany(company) {
+        return { ...company, callHistory: Array.isArray(company.callHistory) ? company.callHistory : [] };
       }
 
       function contactRows() {
@@ -1124,7 +1109,7 @@
           status: company.status,
           industry: company.industry,
           location: company.location,
-          lastInteraction: company.lastCalled || company.callHistory.at(-1)?.at || daysAgo(5),
+          lastInteraction: company.lastCalled || company.callHistory.at(-1)?.at || "",
           notes: company.notes,
           trustScore: company.trustScore,
           callHistory: company.callHistory
@@ -1132,7 +1117,7 @@
       }
 
       function statusFromOutcome(outcome) {
-        if (outcome.includes("wants demo")) return "INTERESTED";
+        if (outcome === "Interested") return "INTERESTED";
         if (outcome.includes("follow up") || outcome.includes("No answer")) return "FOLLOW_UP";
         if (outcome.includes("Not interested") || outcome.includes("Wrong number") || outcome.includes("competitor")) return "NOT_INTERESTED";
         return "CALLED";
@@ -1145,10 +1130,6 @@
         if (company.status === "FOLLOW_UP") score += 3;
         if (company.status === "INTERESTED") score += 2;
         return score;
-      }
-
-      function callOutcomeForStatus(status) {
-        return status === "INTERESTED" ? "Interested - wants demo" : status === "FOLLOW_UP" ? "Interested - needs follow up" : status === "NOT_INTERESTED" ? "Not interested" : "No answer - try again";
       }
 
       function filterSms(item, filter) {
@@ -1167,12 +1148,11 @@
       function findCompany(id) { return state.companies.find((company) => company.id === id); }
       function initials(name) { return String(name).split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
       function money(value) { const number = Number(value); return Number.isFinite(number) ? number.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0"; }
-      function formatDate(value) { return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }); }
+      function formatDate(value) { return value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : ""; }
       function formatDateTime(value) { return value ? new Date(value).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Never"; }
       function localDateTimeValue(date) { return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
       function sameDay(value, date) { return value && new Date(value).toISOString().slice(0, 10) === date.toISOString().slice(0, 10); }
-      function daysAgo(days) { return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(); }
-      function daysAhead(days) { return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(); }
+      function emptyMessage(message) { return `<div class="muted">${message}</div>`; }
       function cryptoId(prefix) { return `${prefix}-${Math.random().toString(36).slice(2, 10)}`; }
       function notificationLabel(key) {
         return { newDeal: "New deal created", stalled: "Deal stalled 2hrs", feeUnpaid: "Fee unpaid 24hrs", onboarded: "New company onboarded", smsFailure: "SMS delivery failure" }[key] || key;

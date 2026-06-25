@@ -8,7 +8,7 @@ import {
 } from "./sms-templates.js";
 import { REPLY_INTENT, parseSmsReply } from "./sms-replies.js";
 import { DEAL_EVENT, DEAL_ROLE, advanceDealOnReply, planDealEvent } from "./deal-flow.js";
-import { createDealStore, normalizePhone } from "./deal-store.js";
+import { createDealStore, normalizePhone, resolveBusinessId } from "./deal-store.js";
 import { nextNegotiationRound, shouldEscalateNegotiation } from "../../public/risk-controls.js";
 
 export const FOUNDER_SMS_TYPE = Object.freeze({
@@ -115,7 +115,10 @@ export function resolveRoleContact(deal = {}, role) {
   const map = {
     [DEAL_ROLE.BUYER]: deal.buyer || { name: deal.buyerName, phone: deal.buyerPhone },
     [DEAL_ROLE.SELLER]: deal.seller || { name: deal.sellerName, phone: deal.sellerPhone },
-    [DEAL_ROLE.OWNER]: deal.owner || { name: deal.ownerName || deal.businessName, phone: deal.ownerPhone || deal.sellerPhone }
+    [DEAL_ROLE.OWNER]: deal.owner || {
+      name: deal.ownerName || deal.businessName,
+      phone: deal.ownerPhone || deal.approvalPhone || deal.sellerPhone
+    }
   };
   const contact = map[role] || {};
   return { role, name: contact.name || "", phone: contact.phone || "" };
@@ -216,6 +219,16 @@ export async function sendDealEvent({
         now
       })
     : activeDeal;
+  if (store) {
+    await persistBusinessOutboundState({
+      deal: persistedDeal,
+      store,
+      nextStatus: plan.nextStatus,
+      notifications: plan.notifications,
+      results,
+      now
+    });
+  }
   return { event, nextStatus: plan.nextStatus, deal: persistedDeal, notifications: plan.notifications, results, founderResult };
 }
 
@@ -304,6 +317,7 @@ export async function processInboundSms({
     };
   }
 
+  await persistBusinessIncomingState({ deal, store, inbound, replierRole, now });
   const result = await handleInboundReply({
     deal,
     text: inbound.text,
@@ -327,6 +341,16 @@ export async function processInboundSms({
     notifications: result.notifications,
     results: [...result.results, founderResult],
     inbound: { ...inbound, negotiationRoundCount: result.negotiationRoundCount },
+    now
+  });
+  await persistBusinessClassifiedState({
+    deal: updatedDeal,
+    originalDeal: deal,
+    store,
+    result,
+    inbound,
+    replierRole,
+    results: result.results,
     now
   });
 
@@ -362,6 +386,7 @@ export function resolveReplierRoleByPhone(deal = {}, phone) {
   if (!normalized) return null;
   if (normalizePhone(deal.buyer?.phone || deal.buyerPhone) === normalized) return DEAL_ROLE.BUYER;
   if (normalizePhone(deal.seller?.phone || deal.sellerPhone) === normalized) return DEAL_ROLE.SELLER;
+  if (normalizePhone(deal.owner?.phone || deal.ownerPhone || deal.approvalPhone) === normalized) return DEAL_ROLE.OWNER;
   return null;
 }
 
@@ -385,7 +410,13 @@ async function resolveInboundDeal({ payload, store }) {
 
 function extractDealRefFromText(text) {
   const tokens = clean(text).match(/[A-Za-z0-9-]{3,24}/g) || [];
-  const ignored = new Set(["YES", "NO", "COUNTER", "ACCEPT", "DECLINE", "PAID", "RECEIVED", "DISPUTE", "MSG", "REF"]);
+  const ignored = new Set([
+    "YES", "YEP", "NO", "NOPE", "OK", "OKAY", "COUNTER", "ACCEPT", "DECLINE", "REJECT",
+    "APPROVE", "APPROVED", "PROCEED", "PAID", "RECEIVED", "DISPUTE", "MSG", "REF",
+    "CAN", "WE", "DO", "MAKE", "IT", "WHAT", "ABOUT", "TOO", "EXPENSIVE", "PRICE",
+    "NDIYO", "SAWA", "KUBALI", "FANYA", "HIYO", "ENDELEA", "HAPANA", "KATAA", "USIENDE",
+    "BEI", "NDOGO", "SANA", "GHALI", "NIONGEZE", "ONGEZA", "PUNGUZA"
+  ]);
   return tokens.map((token) => token.toUpperCase()).find((token) => !ignored.has(token)) || "";
 }
 
@@ -428,6 +459,175 @@ async function persistInboundState({ deal, store, nextStatus, notifications, res
   }
   const updated = await store.updateDeal(deal.dealId, patch);
   return updated || deal;
+}
+
+async function persistBusinessOutboundState({ deal, store, nextStatus, notifications = [], results = [], now }) {
+  if (!canMirrorBusiness(store, deal)) return;
+  const timestamp = now().toISOString();
+  const status = nextStatus === "initiated" ? "awaiting_sms_reply" : businessStatusFromLegacy(nextStatus || deal.status);
+  await store.mirrorBusinessDeal(deal, {
+    businessId: resolveBusinessId(deal),
+    status,
+    approvalStatus: "sms_sent",
+    smsState: "waiting",
+    smsSentAt: timestamp,
+    lastSmsSentAt: timestamp,
+    lastNotifiedAt: timestamp
+  });
+  for (const notification of notifications) {
+    const result = results.find((item) => item.role === notification.role && item.type === notification.type) || {};
+    await store.appendBusinessConversationMessage({
+      deal,
+      conversationPatch: businessConversationPatch(deal, timestamp, status),
+      message: {
+        direction: "outgoing",
+        senderRole: "agent",
+        recipientRole: notification.role,
+        channel: "sms",
+        type: notification.type,
+        to: result.to || resolveRoleContact(deal, notification.role).phone,
+        body: result.message || renderNotification(deal, notification),
+        delivered: Boolean(result.delivered),
+        deliveryStatus: result.ok ? "sent" : "fallback",
+        createdAt: timestamp
+      }
+    });
+  }
+  await store.createBusinessNotification({
+    deal,
+    notification: {
+      type: "approval_sms_sent",
+      title: "Approval SMS sent",
+      message: `Waiting for SMS reply on ${deal.dealId || deal.id || "deal"}.`,
+      status: "unread",
+      createdAt: timestamp
+    }
+  });
+}
+
+async function persistBusinessIncomingState({ deal, store, inbound, replierRole, now }) {
+  if (!canMirrorBusiness(store, deal)) return;
+  const timestamp = now().toISOString();
+  await store.appendBusinessConversationMessage({
+    deal,
+    conversationPatch: businessConversationPatch(deal, timestamp, "reply_received"),
+    message: {
+      direction: "incoming",
+      senderRole: replierRole === DEAL_ROLE.OWNER ? "owner" : replierRole,
+      channel: "sms",
+      from: inbound.from,
+      body: inbound.text,
+      providerMessageId: inbound.providerMessageId,
+      createdAt: timestamp
+    }
+  });
+  await store.mirrorBusinessDeal(deal, {
+    businessId: resolveBusinessId(deal),
+    status: "reply_received",
+    approvalStatus: "processing",
+    smsState: "processing",
+    replyReceivedAt: timestamp,
+    lastInboundAt: timestamp,
+    lastReplyText: inbound.text
+  });
+}
+
+async function persistBusinessClassifiedState({ deal, originalDeal = {}, store, result = {}, inbound = {}, replierRole, results = [], now }) {
+  const sourceDeal = deal || originalDeal;
+  if (!canMirrorBusiness(store, sourceDeal)) return;
+  const timestamp = now().toISOString();
+  const status = businessStatusFromIntent(result.intent, result.nextStatus);
+  const patch = {
+    businessId: resolveBusinessId(sourceDeal),
+    status,
+    approvalStatus: status,
+    smsState: status,
+    classifiedAt: timestamp,
+    replyIntent: result.intent,
+    replyKeyword: result.keyword,
+    lastReplyText: inbound.text,
+    lastInboundAt: timestamp
+  };
+  if (status === "approved") {
+    patch.approvedAt = timestamp;
+    patch.agentConfirmedAt = timestamp;
+  }
+  if (status === "declined") {
+    patch.declinedAt = timestamp;
+    patch.agentNotifiedAt = timestamp;
+  }
+  if (status === "counter") {
+    patch.counterText = result.message || inbound.text;
+    patch.counterAmount = extractAmount(result.message || inbound.text);
+  }
+  await store.mirrorBusinessDeal(sourceDeal, patch);
+  for (const notificationResult of results) {
+    if (!notificationResult.message) continue;
+    await store.appendBusinessConversationMessage({
+      deal: sourceDeal,
+      conversationPatch: businessConversationPatch(sourceDeal, timestamp, status),
+      message: {
+        direction: "outgoing",
+        senderRole: "agent",
+        recipientRole: notificationResult.role,
+        channel: "sms",
+        type: notificationResult.type,
+        to: notificationResult.to || "",
+        body: notificationResult.message,
+        delivered: Boolean(notificationResult.delivered),
+        deliveryStatus: notificationResult.ok ? "sent" : "fallback",
+        createdAt: timestamp
+      }
+    });
+  }
+  await store.createBusinessNotification({
+    deal: sourceDeal,
+    notification: {
+      type: `sms_reply_${status}`,
+      title: "SMS reply processed",
+      message: `Owner SMS classified as ${status}.`,
+      status: "unread",
+      replyIntent: result.intent,
+      replierRole,
+      createdAt: timestamp
+    }
+  });
+}
+
+function canMirrorBusiness(store, deal) {
+  return Boolean(store && typeof store.mirrorBusinessDeal === "function" && resolveBusinessId(deal));
+}
+
+function businessConversationPatch(deal = {}, timestamp, status) {
+  return {
+    businessId: resolveBusinessId(deal),
+    dealId: deal.dealId || deal.id || deal.ref,
+    title: deal.title || deal.dealTitle || deal.serviceDescription || deal.service || "Deal approval",
+    status,
+    participantName: deal.owner?.name || deal.ownerName || deal.businessName || deal.seller?.name || deal.sellerName || "",
+    latestMessageAt: timestamp
+  };
+}
+
+function businessStatusFromIntent(intent, nextStatus) {
+  if (intent === REPLY_INTENT.APPROVE || nextStatus === "approved") return "approved";
+  if (intent === REPLY_INTENT.DECLINE || nextStatus === "rejected") return "declined";
+  if (intent === REPLY_INTENT.COUNTER || nextStatus === "negotiating") return "counter";
+  if (intent === REPLY_INTENT.MESSAGE) return "message";
+  return businessStatusFromLegacy(nextStatus);
+}
+
+function businessStatusFromLegacy(status) {
+  const normalized = clean(status);
+  if (normalized === "initiated" || normalized === "pending_human_approval") return "awaiting_sms_reply";
+  if (normalized === "rejected") return "declined";
+  if (normalized === "negotiating") return "counter";
+  return normalized || "awaiting_sms_reply";
+}
+
+function extractAmount(text) {
+  const value = String(text || "").match(/\d[\d,]*(?:\.\d+)?/)?.[0];
+  return value ? Number(value.replace(/,/g, "")) : undefined;
 }
 
 function buildNotificationLogEntries(results = [], now) {

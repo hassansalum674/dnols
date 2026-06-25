@@ -674,7 +674,13 @@ label {
 }
 
 .checkbox input {
-  min-width: auto;
+  flex: none;
+  height: 16px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  width: 16px;
 }
 
 .result-card {
