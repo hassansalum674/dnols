@@ -401,7 +401,7 @@
           <button class="btn" id="verifyResetCodeBtn" type="submit">Verify code</button>
           <button class="link-btn" id="resendResetCodeBtn" type="button">Send a new code</button>
         </form>
-        <p class="security-note">Codes expire quickly and incorrect attempts are limited. A new password form opens only after the code is verified.</p>
+        <p class="security-note">Use the 8-character code from the email titled &ldquo;Confirm your Dnols password reset&rdquo; (expires in 10 minutes). This is not the same as your sign-up verification email. A new password form opens only after the code is verified.</p>
         <div id="resetStatus" class="status"></div>
       </div>
     </dialog>
@@ -622,7 +622,7 @@
           resetCodeForm.hidden = false;
           resetCodeForm.elements.resetCode.value = "";
           passwordResetStatus.innerHTML = "";
-          showResetOk(result.message || "If this business email can reset a dashboard password, a code was sent. Enter the code below.");
+          showResetOk("Check this inbox for the email titled \u201CConfirm your Dnols password reset\u201D (it expires in 10 minutes). Enter that 8-character code below \u2014 do not use your sign-up verification email.");
           resetCodeForm.elements.resetCode.focus();
         } catch (error) {
           showResetError(readableResetError(error));
@@ -647,7 +647,11 @@
             email: resetEmail,
             code
           });
-          resetToken = result.resetToken;
+          resetToken = result.resetToken || "";
+          if (!resetToken) {
+            showResetError("We could not confirm that code. Tap \u201CSend a new code\u201D and try the newest one.");
+            return;
+          }
           verifiedResetEmail = resetEmail;
           saveVerifiedResetSession();
           resetCodeForm.hidden = true;
@@ -820,8 +824,8 @@
           reset_rate_limited: "Too many reset attempts. Try again later.",
           email_service_not_configured: "Password reset email is not configured yet.",
           sender_not_configured: "Password reset sender is not configured yet.",
-          reset_invalid_code: "The reset code is incorrect or expired.",
-          reset_code_expired: "The reset code is incorrect or expired.",
+          reset_invalid_code: "That code didn't match. Use the newest code from the email titled \u201CConfirm your Dnols password reset\u201D \u2014 not your sign-up verification email.",
+          reset_code_expired: "This reset code expired. Tap \u201CSend a new code\u201D and use the newest \u201CConfirm your Dnols password reset\u201D email.",
           reset_session_not_found: "The password reset session is incorrect or expired.",
           reset_session_expired: "The password reset session is incorrect or expired.",
           reset_invalid_session: "The password reset session is incorrect or expired.",
