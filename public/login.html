@@ -484,6 +484,7 @@
         `${RENDER_API_ORIGIN}/api/password-reset`,
         ...(location.hostname === "localhost" || location.hostname === "127.0.0.1" ? ["/api/password-reset"] : [])
       ];
+      const RESET_SESSION_KEY = "dnolsVerifiedPasswordResetSession";
       let mode = "signup";
       let authFlowInProgress = false;
       let resetChallengeId = "";
@@ -648,6 +649,7 @@
           });
           resetToken = result.resetToken;
           verifiedResetEmail = resetEmail;
+          saveVerifiedResetSession();
           resetCodeForm.hidden = true;
           resetDialog.close();
           passwordResetStatus.innerHTML = "";
@@ -666,6 +668,7 @@
       }
 
       async function completePasswordReset() {
+        restoreVerifiedResetSession();
         if (!resetChallengeId || !verifiedResetEmail || !resetToken) {
           showPasswordResetError("Verify your reset code first.");
           return;
@@ -694,6 +697,7 @@
           resetToken = "";
           resetEmail = "";
           verifiedResetEmail = "";
+          sessionStorage.removeItem(RESET_SESSION_KEY);
           resetCodeForm.hidden = true;
           resetPasswordForm.reset();
           newPasswordDialog.close();
@@ -776,11 +780,38 @@
         resetToken = "";
         resetEmail = "";
         verifiedResetEmail = "";
+        sessionStorage.removeItem(RESET_SESSION_KEY);
         resetStatus.innerHTML = "";
         passwordResetStatus.innerHTML = "";
         resetCodeForm.hidden = true;
         resetCodeForm.reset();
         resetPasswordForm.reset();
+      }
+
+      function saveVerifiedResetSession() {
+        sessionStorage.setItem(RESET_SESSION_KEY, JSON.stringify({
+          challengeId: resetChallengeId,
+          resetToken,
+          email: verifiedResetEmail,
+          savedAt: Date.now()
+        }));
+      }
+
+      function restoreVerifiedResetSession() {
+        if (resetChallengeId && resetToken && verifiedResetEmail) return;
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(RESET_SESSION_KEY) || "null");
+          if (!saved || Date.now() - Number(saved.savedAt || 0) > 5 * 60 * 1000) {
+            sessionStorage.removeItem(RESET_SESSION_KEY);
+            return;
+          }
+          resetChallengeId = saved.challengeId || "";
+          resetToken = saved.resetToken || "";
+          resetEmail = saved.email || "";
+          verifiedResetEmail = saved.email || "";
+        } catch {
+          sessionStorage.removeItem(RESET_SESSION_KEY);
+        }
       }
 
       function readableResetError(error) {
