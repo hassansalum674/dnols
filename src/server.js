@@ -38,7 +38,8 @@ import {
   loadFirestore,
   sanitizeFirebaseAdminError,
   describeFirebaseAdminError,
-  describeFirestoreTarget
+  describeFirestoreTarget,
+  probeFirestoreRest
 } from "./services/firebase-admin.js";
 import { runDealReminders, runFounderFeeReminders, startDealReminderInterval } from "./services/deal-reminders.js";
 import { DEAL_EVENT, DEAL_ROLE } from "./services/deal-flow.js";
@@ -663,6 +664,10 @@ async function runFirestoreProbe() {
   let readOk = false;
   let database;
 
+  // Debug path only: capture Google's raw REST error body to explain the opaque
+  // gRPC "403 PERMISSION_DENIED". Never throws; secrets are never returned.
+  const restProbe = await safeProbeFirestoreRest(config);
+
   try {
     const firestore = await loadFirestore(config);
     database = describeFirestoreTarget(firestore);
@@ -678,7 +683,8 @@ async function runFirestoreProbe() {
       ...diagnostics,
       database,
       writeOk,
-      readOk
+      readOk,
+      restProbe
     };
   } catch (error) {
     return {
@@ -688,8 +694,17 @@ async function runFirestoreProbe() {
       writeOk,
       readOk,
       ...sanitizeFirebaseAdminError(error),
-      error: describeFirebaseAdminError(error)
+      error: describeFirebaseAdminError(error),
+      restProbe
     };
+  }
+}
+
+async function safeProbeFirestoreRest(config) {
+  try {
+    return await probeFirestoreRest(config);
+  } catch (error) {
+    return { tokenObtained: false, requestError: sanitizeFirebaseAdminError(error) };
   }
 }
 

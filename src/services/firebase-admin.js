@@ -57,6 +57,88 @@ export function firebaseAdminOptions(appModule, config = {}) {
   return options;
 }
 
+// Debug-only: bypass the opaque gRPC client and talk to Firestore over plain REST
+// so Google's full JSON error body (error.status / message / details[].reason /
+// metadata) is captured. That body is non-secret; the OAuth access token, private
+// key and env values are never returned. Intended ONLY for the debug probe path.
+export async function probeFirestoreRest(config = {}, { fetchImpl } = {}) {
+  const doFetch = fetchImpl || globalThis.fetch;
+  const projectId = clean(config.projectId) || clean(config.serviceAccountProjectId);
+  const result = { tokenObtained: false };
+
+  let accessToken;
+  try {
+    accessToken = await obtainFirestoreAccessToken(config);
+    result.tokenObtained = Boolean(accessToken);
+  } catch (error) {
+    // A token-fetch failure usually means a mangled/corrupt private key in env.
+    result.tokenObtained = false;
+    result.tokenError = sanitizeProbeError(error);
+    return result;
+  }
+
+  if (!accessToken) {
+    result.tokenError = { message: "No access token returned by credential." };
+    return result;
+  }
+
+  if (!projectId) {
+    result.requestError = { message: "No projectId resolved for REST probe." };
+    return result;
+  }
+
+  if (typeof doFetch !== "function") {
+    result.requestError = { message: "global fetch is unavailable in this runtime." };
+    return result;
+  }
+
+  try {
+    const url =
+      `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}` +
+      `/databases/%28default%29/documents?pageSize=1`;
+    const restResponse = await doFetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
+    });
+    result.httpStatus = restResponse.status;
+    const text = await restResponse.text();
+    result.body = parseRestProbeBody(text);
+  } catch (error) {
+    result.requestError = sanitizeProbeError(error);
+  }
+  return result;
+}
+
+async function obtainFirestoreAccessToken(config) {
+  const appModule = await import("firebase-admin/app");
+  const app = initializeFirebaseAdminApp(appModule, config);
+  const credential = app?.options?.credential;
+  if (!credential || typeof credential.getAccessToken !== "function") {
+    throw new Error("Firebase app credential cannot mint an access token.");
+  }
+  const tokenResponse = await credential.getAccessToken();
+  return clean(tokenResponse?.access_token);
+}
+
+function parseRestProbeBody(text) {
+  const raw = clean(text);
+  if (!raw) return undefined;
+  try {
+    // Google's error body has no secrets; return it parsed and intact.
+    return JSON.parse(raw);
+  } catch {
+    return redactSensitiveText(raw).slice(0, 4096);
+  }
+}
+
+function sanitizeProbeError(error) {
+  return pruneUndefined({
+    name: clean(error?.constructor?.name || error?.name) || undefined,
+    message: redactFull(error?.message),
+    code: redactFull(error?.code ?? error?.errorInfo?.code)
+  });
+}
+
 export function isFirebaseAdminModuleMissing(error) {
   const code = String(error?.code || "");
   return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
