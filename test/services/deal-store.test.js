@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   createDealStore,
   createMemoryDealStore,
+  createResilientDealStore,
+  isFirestoreDegradedError,
   normalizeFirestoreStoreError
 } from "../../src/services/deal-store.js";
 import {
@@ -70,6 +72,74 @@ test("deal store uses memory backend when Firebase config is absent", async () =
 
   assert.equal(saved.dealId, "DL-MEMORY-FALLBACK");
   assert.equal((await store.getDeal("DL-MEMORY-FALLBACK")).seller.phone, "+255798765432");
+});
+
+test("resilient deal store reports the memory backend when Firestore is disabled", async () => {
+  const store = createResilientDealStore({ env: {} });
+  const saved = await store.saveDeal({
+    dealId: "DL-RESILIENT-MEM",
+    seller: { phone: "+255798765432" }
+  });
+
+  assert.equal(saved.dealId, "DL-RESILIENT-MEM");
+  assert.deepEqual(store.getPersistenceStatus(), {
+    ok: true,
+    degraded: false,
+    backend: "memory",
+    reason: ""
+  });
+});
+
+test("resilient deal store falls back to memory and reports degraded when Firestore rejects", async () => {
+  const error = Object.assign(new Error("7 PERMISSION_DENIED: Received HTTP status code 403"), {
+    code: "firebase_firestore_permission_denied",
+    statusCode: 503
+  });
+  const reject = async () => { throw error; };
+  const primary = {
+    saveDeal: reject,
+    getDeal: reject,
+    findDealByPhone: reject,
+    listActiveDeals: reject,
+    listDealsByStatus: reject,
+    findActiveDealsByPhone: reject,
+    updateDeal: reject,
+    mirrorBusinessDeal: reject,
+    appendBusinessConversationMessage: reject,
+    createBusinessNotification: reject
+  };
+  const store = createResilientDealStore({ env: {}, primary });
+
+  const saved = await store.saveDeal({
+    dealId: "DL-RESILIENT-DEGRADED",
+    seller: { phone: "+255798765432" }
+  });
+
+  assert.equal(saved.dealId, "DL-RESILIENT-DEGRADED");
+  const status = store.getPersistenceStatus();
+  assert.equal(status.degraded, true);
+  assert.equal(status.ok, false);
+  assert.equal(status.backend, "memory");
+  assert.equal(status.reason, "firebase_firestore_permission_denied");
+});
+
+test("resilient deal store rethrows errors that are not Firestore connectivity failures", async () => {
+  const primary = {
+    saveDeal: async () => { throw new Error("unexpected bug"); }
+  };
+  const store = createResilientDealStore({ env: {}, primary });
+
+  await assert.rejects(() => store.saveDeal({ dealId: "DL-RESILIENT-BUG" }), /unexpected bug/);
+});
+
+test("isFirestoreDegradedError flags Firestore permission and availability failures only", () => {
+  assert.equal(isFirestoreDegradedError(Object.assign(new Error("denied"), {
+    code: "firebase_firestore_permission_denied"
+  })), true);
+  assert.equal(isFirestoreDegradedError(Object.assign(new Error("down"), { statusCode: 503 })), true);
+  assert.equal(isFirestoreDegradedError(Object.assign(new Error("forbidden"), { status: 403 })), true);
+  assert.equal(isFirestoreDegradedError(new Error("some unrelated bug")), false);
+  assert.equal(isFirestoreDegradedError(undefined), false);
 });
 
 test("Firebase Admin helper initializes from modular ESM app exports", () => {

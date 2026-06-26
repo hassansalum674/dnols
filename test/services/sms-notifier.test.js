@@ -9,6 +9,30 @@ import {
 } from "../../src/services/sms-notifier.js";
 import { DEAL_EVENT, DEAL_ROLE } from "../../src/services/deal-flow.js";
 
+function firestoreDownError() {
+  return Object.assign(new Error("7 PERMISSION_DENIED: Received HTTP status code 403"), {
+    code: "firebase_firestore_permission_denied",
+    statusCode: 503
+  });
+}
+
+// Simulates a Firestore-backed deal store that is unreachable: every op rejects.
+function createRejectingDealStore(error = firestoreDownError()) {
+  const reject = async () => { throw error; };
+  return {
+    saveDeal: reject,
+    getDeal: reject,
+    findDealByPhone: reject,
+    listActiveDeals: reject,
+    listDealsByStatus: reject,
+    findActiveDealsByPhone: reject,
+    updateDeal: reject,
+    mirrorBusinessDeal: reject,
+    appendBusinessConversationMessage: reject,
+    createBusinessNotification: reject
+  };
+}
+
 test("normalizes Africa's Talking inbound webhook fields", () => {
   assert.deepEqual(normalizeInboundSmsPayload({
     from: " +255 798 765 432 ",
@@ -204,6 +228,79 @@ test("startDealAndNotify persists a new deal and sends the new deal event", asyn
   assert.equal(result.nextStatus, "initiated");
   assert.deepEqual(sent.map((message) => message.to), ["+255798765432"]);
   assert.equal((await store.getDeal("DL-START")).lastNotifiedAt, "2026-06-24T10:00:00.000Z");
+});
+
+test("startDealAndNotify still sends SMS when the deal store Firestore ops reject", async () => {
+  const store = createRejectingDealStore();
+  const sent = [];
+  const smsService = {
+    async sendSms(input) {
+      sent.push(input);
+      return { ok: true, delivered: true, to: input.to, message: input.message };
+    }
+  };
+
+  const result = await startDealAndNotify({
+    deal: {
+      dealId: "DL-FS-DOWN",
+      ownerUid: "owner-degraded",
+      buyer: { name: "Buyer", phone: "+255712345678" },
+      seller: { name: "Seller", phone: "+255798765432" },
+      serviceDescription: "Freight",
+      amount: 500
+    },
+    store,
+    smsService,
+    now: () => new Date("2026-06-24T10:00:00.000Z")
+  });
+
+  assert.equal(result.event, DEAL_EVENT.NEW_DEAL);
+  assert.deepEqual(sent.map((message) => message.to), ["+255798765432"]);
+  assert.match(sent[0].message, /^DNOLS: New deal request/);
+});
+
+test("processInboundSms still classifies and confirms when Firestore writes reject", async () => {
+  const state = { deals: new Map(), phoneIndex: new Map(), businesses: new Map() };
+  const memory = createMemoryDealStore({ state });
+  await memory.saveDeal({
+    dealId: "DL-FS-IN",
+    ownerUid: "owner-degraded",
+    status: "initiated",
+    owner: { name: "Owner", phone: "+255798765432" },
+    buyer: { name: "Buyer", phone: "+255712345678" },
+    seller: { name: "Seller", phone: "+255700000000" },
+    serviceDescription: "Freight",
+    amount: 500
+  });
+  const error = firestoreDownError();
+  // Reads succeed (deal resolvable) but every write rejects, like a degraded edge.
+  const store = {
+    ...memory,
+    saveDeal: async () => { throw error; },
+    updateDeal: async () => { throw error; },
+    mirrorBusinessDeal: async () => { throw error; },
+    appendBusinessConversationMessage: async () => { throw error; },
+    createBusinessNotification: async () => { throw error; }
+  };
+  const sent = [];
+  const smsService = {
+    async sendSms(input) {
+      sent.push(input);
+      return { ok: true, delivered: true, to: input.to, message: input.message };
+    }
+  };
+
+  const result = await processInboundSms({
+    payload: { from: "+255798765432", text: "sawa fanya hiyo", linkId: "DL-FS-IN" },
+    store,
+    smsService,
+    now: () => new Date("2026-06-24T10:00:00.000Z")
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.intent, "approve");
+  assert.equal(result.nextStatus, "approved");
+  assert.ok(sent.length >= 1, "an outbound confirmation SMS should still be sent");
 });
 
 test("startDealAndNotify mirrors outbound approval SMS to business-scoped docs", async () => {

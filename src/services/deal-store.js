@@ -63,6 +63,98 @@ export function createDealStore({ env = process.env, now = () => new Date() } = 
   };
 }
 
+const RESILIENT_STORE_METHODS = [
+  "saveDeal",
+  "getDeal",
+  "findDealByPhone",
+  "listActiveDeals",
+  "listDealsByStatus",
+  "findActiveDealsByPhone",
+  "updateDeal",
+  "mirrorBusinessDeal",
+  "appendBusinessConversationMessage",
+  "createBusinessNotification"
+];
+
+// Best-effort deal store: Firestore powers the live dashboard mirror, but it must
+// never gate SMS delivery. Firestore is currently blocked at Google's network edge
+// from Render, so any Firestore op can reject with firebase_firestore_* / 403 /
+// unavailable. When that happens we log, fall back to the in-process memory store so
+// the deal still has a record this request can use, and let the SMS continue. When
+// Firestore works, behaviour is unchanged and every write lands in Firestore.
+export function createResilientDealStore({ env = process.env, now = () => new Date(), primary } = {}) {
+  const memory = createMemoryDealStore({ state: memoryState, now });
+  const useFirestore = Boolean(primary) || getFirestoreConfig(env).enabled;
+  const status = {
+    ok: true,
+    degraded: false,
+    backend: useFirestore ? "firestore" : "memory",
+    reason: ""
+  };
+  const getPersistenceStatus = () => ({ ...status });
+
+  if (!useFirestore) {
+    memory.getPersistenceStatus = getPersistenceStatus;
+    return memory;
+  }
+
+  const primaryStore = primary || createDealStore({ env, now });
+  const resilient = { getPersistenceStatus };
+  for (const method of RESILIENT_STORE_METHODS) {
+    resilient[method] = async (...args) => {
+      try {
+        return await primaryStore[method](...args);
+      } catch (error) {
+        if (!isFirestoreDegradedError(error)) throw error;
+        markDegraded(status, error);
+        console.warn("Firestore persistence degraded; using in-memory fallback so SMS can proceed", {
+          operation: method,
+          reason: status.reason
+        });
+        try {
+          return await memory[method](...args);
+        } catch (fallbackError) {
+          console.warn("In-memory persistence fallback failed; skipping write so SMS can proceed", {
+            operation: method,
+            message: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+          });
+          return null;
+        }
+      }
+    };
+  }
+  return resilient;
+}
+
+export function isFirestoreDegradedError(error) {
+  return Boolean(firestoreDegradedReason(error));
+}
+
+function firestoreDegradedReason(error) {
+  if (!error) return "";
+  const code = clean(error.code || error.errorInfo?.code);
+  if (code.startsWith("firebase_firestore_")) return code;
+  if (code === "firebase_admin_service_account_invalid") return code;
+  const numericStatus = Number(error.statusCode || error.status || error.httpStatus);
+  if (numericStatus === 403) return "firebase_firestore_permission_denied";
+  if (numericStatus === 503) return "firebase_firestore_not_available";
+  const combined = `${code} ${clean(error.message)} ${clean(error.details)}`;
+  if (/permission_denied|permission denied|forbidden|status code 403/i.test(combined)) {
+    return "firebase_firestore_permission_denied";
+  }
+  if (/unavailable|not_found|failed_precondition|not.*enabled/i.test(combined)) {
+    return "firebase_firestore_not_available";
+  }
+  return "";
+}
+
+function markDegraded(status, error) {
+  status.degraded = true;
+  status.ok = false;
+  status.backend = "memory";
+  status.reason = firestoreDegradedReason(error);
+}
+
 export function createMemoryDealStore({ state = { deals: new Map(), phoneIndex: new Map(), businesses: new Map() }, now = () => new Date() } = {}) {
   state.businesses ||= new Map();
   return {

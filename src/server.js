@@ -31,7 +31,7 @@ import {
   sendDealNotifications,
   startDealAndNotify
 } from "./services/sms-notifier.js";
-import { createDealStore } from "./services/deal-store.js";
+import { createDealStore, createResilientDealStore } from "./services/deal-store.js";
 import {
   getFirebaseAdminConfig,
   getFirebaseAdminDiagnostics,
@@ -310,12 +310,14 @@ async function route(request, response) {
   if (request.method === "POST" && url.pathname === "/api/sms/notify") {
     const body = await readRequestJson(request);
     const deal = body.deal || {};
+    // Best-effort persistence: Firestore mirrors the dashboard but must not block SMS.
+    const store = createResilientDealStore();
     try {
       if (body.event) {
         const result = body.event === DEAL_EVENT.NEW_DEAL
-          ? await startDealAndNotify({ deal, store: dealStore })
-          : await sendDealEvent({ deal, event: body.event, store: dealStore });
-        sendJson(response, 200, { ok: true, ...result });
+          ? await startDealAndNotify({ deal, store })
+          : await sendDealEvent({ deal, event: body.event, store });
+        sendJson(response, 200, { ok: true, ...result, persistence: store.getPersistenceStatus() });
         return;
       }
       const notifications = Array.isArray(body.notifications)
@@ -327,9 +329,9 @@ async function route(request, response) {
         sendJson(response, 400, { ok: false, error: "no_notifications", message: "Provide event, type, or notifications." });
         return;
       }
-      const persistedDeal = await persistSmsNotifyDeal(deal, notifications);
+      const persistedDeal = await persistSmsNotifyDeal(store, deal, notifications);
       const results = await sendDealNotifications({ deal: persistedDeal, notifications });
-      sendJson(response, 200, { ok: true, deal: persistedDeal, notifications, results });
+      sendJson(response, 200, { ok: true, deal: persistedDeal, notifications, results, persistence: store.getPersistenceStatus() });
     } catch (error) {
       const knownCode = safeErrorCode(error);
       sendJson(response, Number(error?.statusCode) || 422, {
@@ -343,9 +345,12 @@ async function route(request, response) {
 
   if (request.method === "POST" && url.pathname === "/api/sms/webhook") {
     const payload = await readRequestBody(request);
+    // Best-effort persistence: a Firestore failure must not stop inbound classification
+    // or the outbound confirmation SMS from running.
+    const store = createResilientDealStore();
     try {
-      const result = await processInboundSms({ payload, store: dealStore });
-      sendJson(response, 200, result);
+      const result = await processInboundSms({ payload, store });
+      sendJson(response, 200, { ...result, persistence: store.getPersistenceStatus() });
     } catch (error) {
       sendJson(response, 200, {
         ok: false,
@@ -644,16 +649,29 @@ async function findManifest(namespace) {
   }
 }
 
-async function persistSmsNotifyDeal(deal, notifications = []) {
+async function persistSmsNotifyDeal(store, deal, notifications = []) {
   const dealId = deal.dealId || deal.id || deal.ref;
   if (!dealId) return deal;
-  const existing = await dealStore.getDeal(dealId);
-  const saved = existing ? await dealStore.updateDeal(dealId, deal) : await dealStore.saveDeal(deal);
-  if (!notifications.length) return saved;
-  return dealStore.updateDeal(dealId, {
-    lastNotifiedAt: new Date().toISOString(),
-    remindedAt: ""
-  });
+  // Best-effort: never let a persistence failure block the SMS send. The resilient
+  // store already falls back to memory on Firestore errors; this guard covers any
+  // other unexpected persistence error so the SMS still goes out.
+  try {
+    const existing = await store.getDeal(dealId);
+    const saved = existing ? await store.updateDeal(dealId, deal) : await store.saveDeal(deal);
+    if (!notifications.length) return saved || deal;
+    const updated = await store.updateDeal(dealId, {
+      lastNotifiedAt: new Date().toISOString(),
+      remindedAt: ""
+    });
+    return updated || saved || deal;
+  } catch (error) {
+    console.warn("SMS notify persistence failed; sending SMS without a persisted deal record", {
+      dealId,
+      code: error?.code || "",
+      message: error instanceof Error ? error.message : String(error)
+    });
+    return deal;
+  }
 }
 
 async function runFirestoreProbe() {

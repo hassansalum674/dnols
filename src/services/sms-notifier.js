@@ -165,6 +165,21 @@ export async function sendDealNotifications({
   return results;
 }
 
+// Best-effort persistence: Firestore mirrors the dashboard, but SMS delivery must
+// never depend on it. When a Firestore op rejects (it is currently blocked at
+// Google's network edge), we log and continue so the SMS still goes out.
+async function bestEffortPersist(label, run, fallback = undefined) {
+  try {
+    return await run();
+  } catch (error) {
+    console.warn(`Best-effort persistence skipped (${label})`, {
+      code: error?.code || "",
+      message: error instanceof Error ? error.message : String(error)
+    });
+    return fallback;
+  }
+}
+
 export async function startDealAndNotify({
   deal = {},
   store = createDealStore(),
@@ -173,11 +188,11 @@ export async function startDealAndNotify({
   smsService,
   now = () => new Date()
 } = {}) {
-  const savedDeal = await store.saveDeal({
-    ...deal,
-    status: "initiated",
-    remindedAt: ""
-  });
+  const initiatedDeal = { ...deal, status: "initiated", remindedAt: "" };
+  const savedDeal = (await bestEffortPersist(
+    "startDealAndNotify.saveDeal",
+    () => store.saveDeal(initiatedDeal)
+  )) || initiatedDeal;
   return sendDealEvent({
     deal: savedDeal,
     event: DEAL_EVENT.NEW_DEAL,
@@ -199,7 +214,9 @@ export async function sendDealEvent({
   now = () => new Date()
 } = {}) {
   const plan = planDealEvent(event);
-  const activeDeal = store ? await upsertDealForNotification({ deal, store }) : deal;
+  const activeDeal = store
+    ? (await bestEffortPersist("sendDealEvent.upsertDeal", () => upsertDealForNotification({ deal, store }))) || deal
+    : deal;
   const results = await sendDealNotifications({ deal: activeDeal, notifications: plan.notifications, env, fetchImpl, smsService });
   const founderResult = await sendFounderNotification({
     deal: { ...activeDeal, status: plan.nextStatus || activeDeal.status },
@@ -210,24 +227,24 @@ export async function sendDealEvent({
     now
   });
   const persistedDeal = store
-    ? await persistNotificationState({
+    ? (await bestEffortPersist("sendDealEvent.persistNotificationState", () => persistNotificationState({
         deal: activeDeal,
         store,
         nextStatus: plan.nextStatus,
         notifications: plan.notifications,
         results: [...results, founderResult],
         now
-      })
+      }))) || activeDeal
     : activeDeal;
   if (store) {
-    await persistBusinessOutboundState({
+    await bestEffortPersist("sendDealEvent.persistBusinessOutboundState", () => persistBusinessOutboundState({
       deal: persistedDeal,
       store,
       nextStatus: plan.nextStatus,
       notifications: plan.notifications,
       results,
       now
-    });
+    }));
   }
   return { event, nextStatus: plan.nextStatus, deal: persistedDeal, notifications: plan.notifications, results, founderResult };
 }
@@ -317,7 +334,8 @@ export async function processInboundSms({
     };
   }
 
-  await persistBusinessIncomingState({ deal, store, inbound, replierRole, now });
+  await bestEffortPersist("processInboundSms.persistBusinessIncomingState", () =>
+    persistBusinessIncomingState({ deal, store, inbound, replierRole, now }));
   const result = await handleInboundReply({
     deal,
     text: inbound.text,
@@ -334,7 +352,7 @@ export async function processInboundSms({
     smsService,
     now
   });
-  const updatedDeal = await persistInboundState({
+  const updatedDeal = (await bestEffortPersist("processInboundSms.persistInboundState", () => persistInboundState({
     deal,
     store,
     nextStatus: result.nextStatus,
@@ -342,8 +360,8 @@ export async function processInboundSms({
     results: [...result.results, founderResult],
     inbound: { ...inbound, negotiationRoundCount: result.negotiationRoundCount },
     now
-  });
-  await persistBusinessClassifiedState({
+  }))) || deal;
+  await bestEffortPersist("processInboundSms.persistBusinessClassifiedState", () => persistBusinessClassifiedState({
     deal: updatedDeal,
     originalDeal: deal,
     store,
@@ -352,7 +370,7 @@ export async function processInboundSms({
     replierRole,
     results: result.results,
     now
-  });
+  }));
 
   return {
     ok: true,
